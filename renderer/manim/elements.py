@@ -2,240 +2,236 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any, Callable, Type
 
-from manim import (
-    Animation,
-    Arrow,
-    Circle,
-    ImageMobject,
-    LEFT,
-    Line,
-    RIGHT,
-    Scene,
-    Succession,
-    SVGMobject,
-    Text,
-    VGroup,
-    VMobject,
-    WHITE,
+from manim import Mobject, Scene
+
+from .animations.arrow_animations import ArrowAnimation
+from .animations.image_animations import ImageAnimation
+from .animations.shape_animations import ShapeAnimation, ShapePopOutAnimation, ShapePopUpAnimation
+from .manim_constants import (
+    ARROW_OBJECT_MAP,
+    ARROW_PHASE_ANIMATION_MAP,
+    DEFAULT_ARROW_OBJECT,
+    DEFAULT_SHAPE_OBJECT,
+    IMAGE_PHASE_ANIMATION_MAP,
+    SHAPE_OBJECT_MAP,
+    SHAPE_PHASE_ANIMATION_MAP,
 )
-
-from .idle_animation import Idle, IdleAnimation
-from .movement import Movement, NoMovement, Point3D
-from .remove_animation import PopOut, RemoveAnimation
-from .spawn_animation import PopIn, SpawnAnimation
+from .objects.arrow_objects import (
+    ArrowObject,
+)
+from .objects.image_objects import ImageObject
+from .objects.shape_objects import ShapeObject, SquareShape
 
 
 @dataclass
-class Element:
+class Elements:
     name: str
-    size: float
-    alt_text: str | None = None
-    alt_color: object | None = None
-    image: str | Path | None = None
-    alt_border_color: object = WHITE
-    spawn_animation: SpawnAnimation = field(default_factory=PopIn)
-    idle_animation: IdleAnimation = field(default_factory=Idle)
-    movement: Movement = field(default_factory=NoMovement)
-    remove_animation: RemoveAnimation = field(default_factory=PopOut)
+    type: str = "shape"
+    shape: ShapeObject = field(default_factory=SquareShape)
+    image: ImageObject | None = None
+    spawn_animation: ShapeAnimation | ArrowAnimation | ImageAnimation = field(default_factory=ShapePopUpAnimation)
+    idle_animation: ShapeAnimation | ArrowAnimation | ImageAnimation | None = None
+    movement: object | None = None
+    remove_animation: ShapeAnimation | ArrowAnimation | ImageAnimation = field(default_factory=ShapePopOutAnimation)
+    _mobject: Mobject | None = field(default=None, init=False, repr=False)
 
-    def set_spawn_animation(self, spawn_animation: SpawnAnimation) -> Element:
-        self.spawn_animation = spawn_animation
+    def set_type(self, element_type: str) -> Elements:
+        self.type = element_type
         return self
 
-    def set_idle_animation(self, idle_animation: IdleAnimation) -> Element:
-        self.idle_animation = idle_animation
+    def set_shape(self, shape: ShapeObject | ArrowObject) -> Elements:
+        self.shape = shape
         return self
 
-    def set_movement(self, movement: Movement) -> Element:
-        self.movement = movement
-        return self
-
-    def set_remove_animation(self, remove_animation: RemoveAnimation) -> Element:
-        self.remove_animation = remove_animation
-        return self
-
-    def set_alt_text(self, alt_text: str | None) -> Element:
-        self.alt_text = alt_text
-        return self
-
-    def set_alt_color(self, alt_color: object | None) -> Element:
-        self.alt_color = alt_color
-        return self
-
-    def set_alt_border_color(self, alt_border_color: object) -> Element:
-        self.alt_border_color = alt_border_color
-        return self
-
-    def set_image(self, image: str | Path | None) -> Element:
+    def set_image(self, image_url: str | Path, size: float | None = None) -> Elements:
+        image = ImageObject().set_url(image_url)
+        size is not None and image.set_size(size)
         self.image = image
         return self
 
-    def build_mobject(self) -> VMobject | VGroup:
-        image_mobject = self._load_image_mobject()
-        if image_mobject is not None:
-            image_mobject.stretch_to_fit_width(self.size)
-            image_mobject.stretch_to_fit_height(self.size)
-            return image_mobject
-
-        radius = self.size / 2
-        circle = Circle(radius=radius, stroke_color=self.alt_border_color)
-        if self.alt_color is None:
-            circle.set_fill(opacity=0)
-        else:
-            circle.set_fill(self.alt_color, opacity=1)
-
-        if self.alt_text is None:
-            return circle
-
-        label = Text(self.alt_text)
-        max_text_width = max(self.size * 0.8, 0.2)
-        if label.width > max_text_width:
-            label.scale_to_fit_width(max_text_width)
-        label.move_to(circle.get_center())
-        return VGroup(circle, label)
-
-    def create_spawn(self, element_mobject: VMobject | VGroup) -> Animation:
-        return self.spawn_animation.create(element_mobject)
-
-    def create_idle(self, element_mobject: VMobject | VGroup) -> Animation:
-        return self.idle_animation.create(element_mobject)
-
-    def create_movement(self, element_mobject: VMobject | VGroup) -> Animation:
-        return self.movement.create(element_mobject)
-
-    def create_remove(self, element_mobject: VMobject | VGroup) -> Animation:
-        return self.remove_animation.create(element_mobject)
-
-    def play_full_cycle(self, scene: Scene) -> VMobject | VGroup:
-        mobject = self.build_mobject()
-        scene.play(self.create_spawn(mobject))
-        scene.play(self.create_idle(mobject))
-        scene.play(self.create_movement(mobject))
-        scene.play(self.create_remove(mobject))
-        return mobject
-
-    def _load_image_mobject(self) -> VMobject | None:
-        if self.image is None:
-            return None
-
-        image_path = Path(self.image)
-        if not image_path.exists() or not image_path.is_file():
-            return None
-
-        if image_path.suffix.lower() == ".svg":
-            return SVGMobject(str(image_path))
-
-        return ImageMobject(str(image_path))
-
-
-@dataclass
-class ArrowElement(Element):
-    name: str = "ARROW"
-    size: float = 1.0
-    start_position: Point3D = field(default_factory=lambda: LEFT)
-    end_position: Point3D = field(default_factory=lambda: RIGHT)
-
-    def to_and_from(self, start_position: Point3D, end_position: Point3D) -> ArrowElement:
-        self.start_position = start_position
-        self.end_position = end_position
+    def set_spawn_animation(self, animation: ShapeAnimation | ArrowAnimation | ImageAnimation) -> Elements:
+        self.spawn_animation = animation
         return self
 
-    def from_(self, start_position: Point3D) -> ArrowElement:
-        self.start_position = start_position
+    def set_idle_animation(self, animation: ShapeAnimation | ArrowAnimation | ImageAnimation) -> Elements:
+        self.idle_animation = animation
         return self
 
-    def to(self, end_position: Point3D) -> ArrowElement:
-        self.end_position = end_position
+    def set_movement(self, movement: object) -> Elements:
+        self.movement = movement
         return self
 
-    def extract_path(self) -> VMobject:
-        return Line(self.start_position, self.end_position)
+    def set_remove_animation(self, animation: ShapeAnimation | ArrowAnimation | ImageAnimation) -> Elements:
+        self.remove_animation = animation
+        return self
 
-    def build_mobject(self) -> Arrow:
-        return Arrow(start=self.start_position, end=self.end_position)
+    def _resolve_drawable(self) -> ShapeObject | ArrowObject | ImageObject:
+        resolvers: dict[str, Callable[[], ShapeObject | ArrowObject | ImageObject | None]] = {
+            "image": lambda: self.image,
+            "arrow": lambda: {True: self.shape, False: None}[isinstance(self.shape, ArrowObject)],
+            "shape": lambda: {True: self.shape, False: None}[isinstance(self.shape, ShapeObject)],
+        }
+        resolved = resolvers.get(self.type, lambda: None)()
+        fallback = {True: self.shape, False: SquareShape()}[isinstance(self.shape, (ShapeObject, ArrowObject))]
+        return resolved or fallback
+
+    def _spawn_once(self, scene: Scene) -> None:
+        drawable = self._resolve_drawable()
+        self._mobject = drawable.draw()
+        self.spawn_animation.bind(self._mobject).animate(scene)
+
+    def _run_idle(self, scene: Scene) -> None:
+        self._mobject is not None and self.idle_animation is not None and self.idle_animation.bind(self._mobject).animate(scene)
+
+    def spawn(self, scene: Scene) -> Mobject:
+        self._mobject is None and self._spawn_once(scene)
+        self._run_idle(scene)
+
+        return self._mobject
+
+    def idle(self, scene: Scene) -> None:
+        self._run_idle(scene)
+
+    def move(self, scene: Scene) -> None:
+        self._mobject is not None and callable(self.movement) and self.movement(scene, self._mobject)
+
+    def close(self, scene: Scene) -> None:
+        self._mobject is not None and self.remove_animation.bind(self._mobject).animate(scene)
+        self._mobject is not None and setattr(self, "_mobject", None)
 
 
 class ElementBuilder:
-    def __init__(self, name: str, size: float):
-        self._element = Element(name=name, size=size)
+    def __init__(self, config: dict[str, Any]):
+        self.config = config
 
-    def set_spawn_animation(self, spawn_animation: SpawnAnimation) -> ElementBuilder:
-        self._element.set_spawn_animation(spawn_animation)
-        return self
+    def build(self) -> Elements:
+        name = str(self.config.get("name", "ELEMENT"))
+        element_type = str(self.config.get("type", "shape")).lower()
+        element = Elements(name=name).set_type(element_type)
 
-    def set_idle_animation(self, idle_animation: IdleAnimation) -> ElementBuilder:
-        self._element.set_idle_animation(idle_animation)
-        return self
+        builders: dict[str, Callable[[], None]] = {
+            "shape": lambda: element.set_shape(self._build_shape()),
+            "arrow": lambda: element.set_shape(self._build_arrow()),
+            "image": lambda: self._assign_image(element),
+        }
+        builders.get(element_type, lambda: None)()
 
-    def set_movement(self, movement: Movement) -> ElementBuilder:
-        self._element.set_movement(movement)
-        return self
+        spawn_animation = self._build_animation(self.config.get("spawn_animation"), "spawn", element_type)
+        self._apply_animation(element.set_spawn_animation, spawn_animation)
 
-    def set_remove_animation(self, remove_animation: RemoveAnimation) -> ElementBuilder:
-        self._element.set_remove_animation(remove_animation)
-        return self
+        idle_animation = self._build_animation(self.config.get("idle_animation"), "idle", element_type)
+        self._apply_animation(element.set_idle_animation, idle_animation)
 
-    def set_alt_text(self, alt_text: str | None) -> ElementBuilder:
-        self._element.set_alt_text(alt_text)
-        return self
+        remove_animation = self._build_animation(self.config.get("remove_animation"), "remove", element_type)
+        self._apply_animation(element.set_remove_animation, remove_animation)
 
-    def set_alt_color(self, alt_color: object | None) -> ElementBuilder:
-        self._element.set_alt_color(alt_color)
-        return self
+        return element
 
-    def set_image(self, image: str | Path | None) -> ElementBuilder:
-        self._element.set_image(image)
-        return self
+    def _assign_image(self, element: Elements) -> None:
+        image_path = self.config.get("image") or self.config.get("url")
+        size = self._number(self.config.get("size"), 1.5)
+        image_path is not None and element.set_image(str(image_path), size=size)
 
-    def set_alt_border_color(self, alt_border_color: object) -> ElementBuilder:
-        self._element.set_alt_border_color(alt_border_color)
-        return self
+    @staticmethod
+    def _apply_animation(setter: Callable[[ShapeAnimation | ArrowAnimation | ImageAnimation], Elements], animation: ShapeAnimation | ArrowAnimation | ImageAnimation | None) -> None:
+        animation is not None and setter(animation)
 
-    def build(self) -> Element:
-        return self._element
+    def _build_shape(self) -> ShapeObject:
+        shape_name = str(self.config.get("shape", "square")).lower()
+        shape = SHAPE_OBJECT_MAP.get(shape_name, DEFAULT_SHAPE_OBJECT)()
 
+        position = self._point2d(self.config.get("position"), default=(0.0, 0.0))
+        shape.set_position(position[0], position[1])
 
-class ArrowElementBuilder:
-    def __init__(self):
-        self._arrow = ArrowElement()
+        size = self._number(self.config.get("size"), 1.6)
+        shape.set_size(size)
+        shape.set_border(self.config.get("border_color", "WHITE"))
+        shape.set_fill(self.config.get("fill_color"))
+        shape.set_text(self.config.get("text"), self.config.get("text_color", "WHITE"))
+        return shape
 
-    def to_and_from(self, start_position: Point3D, end_position: Point3D) -> ArrowElementBuilder:
-        self._arrow.to_and_from(start_position, end_position)
-        return self
+    def _build_arrow(self) -> ArrowObject:
+        arrow_name = str(self.config.get("shape", self.config.get("arrow_type", "unidirectional_dotted"))).lower()
+        arrow = ARROW_OBJECT_MAP.get(arrow_name, DEFAULT_ARROW_OBJECT)()
 
-    def from_(self, start_position: Point3D) -> ArrowElementBuilder:
-        self._arrow.from_(start_position)
-        return self
+        from_position = self._point3d(self.config.get("from"), default=(0.0, 0.0, 0.0))
+        to_position = self._point3d(self.config.get("to"), default=(1.0, 0.0, 0.0))
+        path = [self._point3d(point, default=(0.0, 0.0, 0.0)) for point in self.config.get("path", [])]
 
-    def to(self, end_position: Point3D) -> ArrowElementBuilder:
-        self._arrow.to(end_position)
-        return self
+        arrow.set_border(self.config.get("border_color", "WHITE"))
+        arrow.set_direction(from_position, to_position)
+        arrow.set_path(path)
+        return arrow
 
-    def set_spawn_animation(self, spawn_animation: SpawnAnimation) -> ArrowElementBuilder:
-        self._arrow.set_spawn_animation(spawn_animation)
-        return self
+    def _build_animation(self, config_value: Any, phase: str, element_type: str):
+        builders: dict[bool, Callable[[], ShapeAnimation | ArrowAnimation | ImageAnimation | None]] = {
+            True: lambda: None,
+            False: lambda: self._build_animation_from_value(config_value, phase, element_type),
+        }
+        return builders[config_value is None]()
 
-    def set_idle_animation(self, idle_animation: IdleAnimation) -> ArrowElementBuilder:
-        self._arrow.set_idle_animation(idle_animation)
-        return self
+    def _build_animation_from_value(self, config_value: Any, phase: str, element_type: str):
+        parser_map: dict[bool, Callable[[], tuple[str, float]]] = {
+            True: lambda: (
+                str(config_value.get("type", "")).lower(),
+                self._number(config_value.get("duration"), self._number(config_value.get("run_time"), 0.45)),
+            ),
+            False: lambda: (str(config_value).lower(), self._number(self.config.get(f"{phase}_duration"), 0.45)),
+        }
+        animation_name, duration = parser_map[isinstance(config_value, dict)]()
 
-    def set_movement(self, movement: Movement) -> ArrowElementBuilder:
-        self._arrow.set_movement(movement)
-        return self
+        shape_cls = SHAPE_PHASE_ANIMATION_MAP.get(phase)
+        image_cls = IMAGE_PHASE_ANIMATION_MAP.get(phase)
+        arrow_cls = ARROW_PHASE_ANIMATION_MAP.get(phase, {}).get(animation_name)
 
-    def set_remove_animation(self, remove_animation: RemoveAnimation) -> ArrowElementBuilder:
-        self._arrow.set_remove_animation(remove_animation)
-        return self
+        element_handlers: dict[str, Callable[[], ShapeAnimation | ArrowAnimation | ImageAnimation | None]] = {
+            "shape": lambda: self._instantiate_optional(shape_cls, duration),
+            "image": lambda: self._instantiate_optional(image_cls, duration),
+            "arrow": lambda: self._instantiate_optional(arrow_cls, duration),
+        }
+        return element_handlers.get(element_type, lambda: None)()
 
-    def build(self) -> ArrowElement:
-        return self._arrow
+    @staticmethod
+    def _instantiate_optional(animation_cls: Type[ShapeAnimation | ArrowAnimation | ImageAnimation] | None, duration: float):
+        constructors: dict[bool, Callable[[], ShapeAnimation | ArrowAnimation | ImageAnimation | None]] = {
+            True: lambda: None,
+            False: lambda: animation_cls(duration=duration),
+        }
+        return constructors[animation_cls is None]()
 
+    @staticmethod
+    def _number(value: Any, default: float) -> float:
+        try:
+            return {True: lambda: default, False: lambda: float(value)}[value is None]()
+        except (TypeError, ValueError):
+            return default
 
-def play_elements(scene: Scene, *elements: Element) -> None:
-    for element in elements:
-        element.play_full_cycle(scene)
+    @staticmethod
+    def _point2d(value: Any, default: tuple[float, float]) -> tuple[float, float]:
+        sequence = {True: value, False: ()}[isinstance(value, (list, tuple))]
+        try:
+            extractors: dict[bool, Callable[[], tuple[float, float]]] = {
+                True: lambda: default,
+                False: lambda: (float(sequence[0]), float(sequence[1])),
+            }
+            return extractors[len(sequence) < 2]()
+        except (TypeError, ValueError, IndexError):
+            return default
 
-
-def chain_animation(scene: Scene, *animations: Animation) -> None:
-    scene.play(Succession(*animations))
+    @staticmethod
+    def _point3d(value: Any, default: tuple[float, float, float]) -> tuple[float, float, float]:
+        sequence = {True: list(value), False: []}[isinstance(value, (list, tuple))]
+        try:
+            extractors: dict[bool, Callable[[], tuple[float, float, float]]] = {
+                True: lambda: default,
+                False: lambda: (
+                    float((sequence + [0.0, 0.0, 0.0])[0]),
+                    float((sequence + [0.0, 0.0, 0.0])[1]),
+                    float((sequence + [0.0, 0.0, 0.0])[2]),
+                ),
+            }
+            return extractors[len(sequence) < 2]()
+        except (TypeError, ValueError, IndexError):
+            return default

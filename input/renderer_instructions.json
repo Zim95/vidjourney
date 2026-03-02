@@ -1,0 +1,45 @@
+{
+  "elements": [
+    {
+      "name": "SERVER",
+      "type": "shape",
+      "shape": "square",
+      "position": [2.5, 0.0],
+      "size": 1.6,
+      "text": "SERVER",
+      "spawn_animation": "shape_popup",
+      "remove_animation": "shape_popout"
+    },
+    {
+      "name": "CACHE",
+      "type": "shape",
+      "shape": "square",
+      "position": [-2.5, 0.0],
+      "size": 1.6,
+      "text": "CACHE",
+      "spawn_animation": "shape_popup",
+      "remove_animation": "shape_popout"
+    },
+    {
+      "name": "CACHE_TO_SERVER",
+      "type": "arrow",
+      "shape": "unidirectional_dotted",
+      "from": [-1.5, 0.0, 0.0],
+      "to": [1.5, 0.0, 0.0],
+      "spawn_animation": "unidirectional_dotted_spawn",
+      "idle_animation": "dotted_unidirectional_idle",
+      "remove_animation": "unidirectional_dotted_remove"
+    }
+  ],
+  "sequence": [
+    {"action": "spawn", "target": "SERVER"},
+    {"action": "wait", "duration": 0.3},
+    {"action": "spawn", "target": "CACHE"},
+    {"action": "wait", "duration": 0.3},
+    {"action": "spawn", "target": "CACHE_TO_SERVER"},
+    {"action": "wait", "duration": 0.8},
+    {"action": "close", "target": "CACHE_TO_SERVER"},
+    {"action": "close", "target": "CACHE"},
+    {"action": "close", "target": "SERVER"}
+  ]
+}

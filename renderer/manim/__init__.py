@@ -1,27 +1,82 @@
-from .elements import ArrowElement, ArrowElementBuilder, Element, ElementBuilder, chain_animation, play_elements
-from .idle_animation import Idle, IdleAnimation
-from .movement import DownwardsBent, DownwardsCurve, Movement, NoMovement, StraightLine, UpwardsBent, UpwardsCurve
-from .remove_animation import PopOut, RemoveAnimation
-from .spawn_animation import PopIn, SpawnAnimation
+from __future__ import annotations
+
+import subprocess
+
+from .animations import (
+    AnimationBase,
+    ArrowAnimation,
+    BidirectionalDottedArrowRemoveAnimation,
+    BidirectionalDottedArrowSpawnAnimation,
+    BidirectionalSolidArrowRemoveAnimation,
+    BidirectionalSolidArrowSpawnAnimation,
+    DottedArrowBidirectionalIdleAnimation,
+    DottedArrowUnidirectionalIdleAnimation,
+    ImageAnimation,
+    ImagePopOutAnimation,
+    ImagePopUpAnimation,
+    ShapeAnimation,
+    ShapePopOutAnimation,
+    ShapePopUpAnimation,
+    UnidirectionalDottedArrowRemoveAnimation,
+    UnidirectionalDottedArrowSpawnAnimation,
+    UnidirectionalSolidArrowRemoveAnimation,
+    UnidirectionalSolidArrowSpawnAnimation,
+)
+from .elements import ElementBuilder, Elements
+from .objects import (
+    ArrowObject,
+    BidirectionalDottedArrow,
+    BidirectionalSolidArrow,
+    CircleShape,
+    DottedArrow,
+    ImageObject,
+    ObjectBase,
+    RectangleShape,
+    ShapeObject,
+    SolidArrow,
+    SquareShape,
+    UnidirectionalDottedArrow,
+    UnidirectionalSolidArrow,
+)
 
 __all__ = [
-	"Element",
-	"ElementBuilder",
-	"ArrowElement",
-	"ArrowElementBuilder",
-	"SpawnAnimation",
-	"PopIn",
-	"IdleAnimation",
-	"Idle",
-	"RemoveAnimation",
-	"PopOut",
-	"Movement",
-	"NoMovement",
-	"StraightLine",
-	"UpwardsCurve",
-	"DownwardsCurve",
-	"UpwardsBent",
-	"DownwardsBent",
-	"play_elements",
-	"chain_animation",
+    "ObjectBase",
+    "ShapeObject",
+    "CircleShape",
+    "SquareShape",
+    "RectangleShape",
+    "ArrowObject",
+    "SolidArrow",
+    "DottedArrow",
+    "UnidirectionalSolidArrow",
+    "BidirectionalSolidArrow",
+    "UnidirectionalDottedArrow",
+    "BidirectionalDottedArrow",
+    "ImageObject",
+    "AnimationBase",
+    "ShapeAnimation",
+    "ShapePopUpAnimation",
+    "ShapePopOutAnimation",
+    "ArrowAnimation",
+    "DottedArrowUnidirectionalIdleAnimation",
+    "DottedArrowBidirectionalIdleAnimation",
+    "UnidirectionalDottedArrowSpawnAnimation",
+    "UnidirectionalDottedArrowRemoveAnimation",
+    "UnidirectionalSolidArrowSpawnAnimation",
+    "UnidirectionalSolidArrowRemoveAnimation",
+    "BidirectionalSolidArrowSpawnAnimation",
+    "BidirectionalDottedArrowSpawnAnimation",
+    "BidirectionalDottedArrowRemoveAnimation",
+    "BidirectionalSolidArrowRemoveAnimation",
+    "ImageAnimation",
+    "ImagePopUpAnimation",
+    "ImagePopOutAnimation",
+    "Elements",
+    "ElementBuilder",
+    "run_manim_scene",
 ]
+
+
+def run_manim_scene(file_name: str, scene_class: str, quality: str = "ql", preview: bool = True) -> None:
+    command = ["manim", f"-p{quality}" if preview else f"-{quality}", file_name, scene_class]
+    subprocess.run(command, check=True)
