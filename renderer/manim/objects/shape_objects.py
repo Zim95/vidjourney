@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 from manim import Circle, Mobject, Rectangle, Square, Text, VGroup, WHITE
 
@@ -41,6 +42,18 @@ class ShapeObject(ObjectBase):
 
     def draw(self) -> Mobject:
         raise NotImplementedError
+
+    @classmethod
+    def build(cls, config: dict[str, Any]) -> ShapeObject:
+        instance = cls()
+        position = cls._point2d(config.get("position"), default=(0.0, 0.0))
+        size = cls._number(config.get("size"), default=1.6)
+        instance.set_position(position[0], position[1])
+        instance.set_size(size)
+        instance.set_border(config.get("border_color", WHITE))
+        instance.set_fill(config.get("fill_color"))
+        instance.set_text(config.get("text"), config.get("text_color", WHITE))
+        return instance
 
 
 @dataclass

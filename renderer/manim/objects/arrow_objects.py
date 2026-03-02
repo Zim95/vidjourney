@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from math import atan2
+from typing import Any
 
 from manim import (
     Arrow,
@@ -60,6 +61,18 @@ class ArrowObject(ObjectBase):
             tip = self._tip(self.path_points[-1], self.to_position)
             return VGroup(line, tip)
         return Arrow(start=self.from_position, end=self.to_position, color=self.border_color, buff=0)
+
+    @classmethod
+    def build(cls, config: dict[str, Any]) -> ArrowObject:
+        instance = cls()
+        from_position = cls._point3d(config.get("from"), default=(0.0, 0.0, 0.0))
+        to_position = cls._point3d(config.get("to"), default=(1.0, 0.0, 0.0))
+        raw_points = config.get("path", [])
+        path_points = [cls._point3d(point, default=(0.0, 0.0, 0.0)) for point in raw_points]
+        instance.set_border(config.get("border_color", WHITE))
+        instance.set_direction(from_position, to_position)
+        instance.set_path(path_points)
+        return instance
 
 
 @dataclass

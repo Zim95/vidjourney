@@ -7,7 +7,7 @@ from typing import Callable
 # third party
 from manim import Scene
 
-from .elements import ElementBuilder, Elements
+from renderer.manim.elements import ElementBuilder, Elements
 
 
 class ManimScene(Scene):

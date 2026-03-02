@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Type
+from typing import Any, Callable, Type
 
 from .animations.arrow_animations import (
     ArrowAnimation,
@@ -26,6 +26,7 @@ from .objects.arrow_objects import (
     UnidirectionalDottedArrow,
     UnidirectionalSolidArrow,
 )
+from .objects.image_objects import ImageObject
 from .objects.shape_objects import CircleShape, RectangleShape, ShapeObject, SquareShape
 
 DEFAULT_SHAPE_OBJECT: Type[ShapeObject] = SquareShape
@@ -74,3 +75,28 @@ ARROW_PHASE_ANIMATION_MAP: dict[str, dict[str, Type[ArrowAnimation]]] = {
         "bidirectional_solid_remove": BidirectionalSolidArrowRemoveAnimation,
     },
 }
+
+OBJECT_BUILDERS: dict[str, Callable[[dict[str, Any]], object | None]] = {
+    "shape": lambda config: SHAPE_OBJECT_MAP.get(str(config.get("shape", "square")).lower(), DEFAULT_SHAPE_OBJECT).build(config),
+    "arrow": lambda config: ARROW_OBJECT_MAP.get(
+        str(config.get("shape", config.get("arrow_type", "unidirectional_dotted"))).lower(),
+        DEFAULT_ARROW_OBJECT,
+    ).build(config),
+    "image": lambda config: ImageObject.build(config),
+}
+
+OBJECT_APPLIERS: dict[str, Callable[[Any, object | None], None]] = {
+    "shape": lambda element, built_object: built_object is not None and element.set_shape(built_object),
+    "arrow": lambda element, built_object: built_object is not None and element.set_shape(built_object),
+    "image": lambda element, built_object: built_object is not None and element.set_image_object(built_object),
+}
+
+ANIMATION_CLASS_RESOLVERS: dict[str, Callable[[str, str], Type[ShapeAnimation | ArrowAnimation | ImageAnimation] | None]] = {
+    "shape": lambda phase, _animation_name: SHAPE_PHASE_ANIMATION_MAP.get(phase),
+    "image": lambda phase, _animation_name: IMAGE_PHASE_ANIMATION_MAP.get(phase),
+    "arrow": lambda phase, animation_name: ARROW_PHASE_ANIMATION_MAP.get(phase, {}).get(animation_name),
+}
+
+
+def resolve_animation_class(element_type: str, phase: str, animation_name: str) -> Type[ShapeAnimation | ArrowAnimation | ImageAnimation] | None:
+    return ANIMATION_CLASS_RESOLVERS.get(element_type, lambda _phase, _name: None)(phase, animation_name)

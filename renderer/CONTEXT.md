@@ -332,3 +332,20 @@ Code Refactor: Moving dictionaries to a common file:
 I believe these dictionaries inside elements.py should be added in manim_constants.py
 
 So that whenever, we add new shapes or arrow types, its all very simple to add in a single file. The rest of the code can function as it should
+
+
+Even more abstraction:
+----------------------
+Lets add build methods to each element, objects, animations whatever.
+The job of elements builder is to only pass the config it has thats it.
+
+So that way, we can move more of our dictionaries into manim_constants.py
+
+
+Simplify main:
+--------------
+In main, lets create a manim runner function which uses subprocess to call manim pql and all that with the options. Lets create a .env file called manim.env with manim configurations and use that directly.
+
+Main should only know which runner to call. Thats it.
+
+Also add manim.env to gitignore

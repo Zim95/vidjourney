@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from manim import ImageMobject, Mobject, SVGMobject
 
@@ -37,3 +38,15 @@ class ImageObject(ObjectBase):
         mobject.stretch_to_fit_width(self.size)
         mobject.stretch_to_fit_height(self.size)
         return self._move_to_position(mobject)
+
+    @classmethod
+    def build(cls, config: dict[str, Any]) -> ImageObject | None:
+        image_path = config.get("image") or config.get("url")
+        if image_path is None:
+            return None
+
+        size_value = cls._number(config.get("size"), default=1.5)
+        position = cls._point2d(config.get("position"), default=(0.0, 0.0))
+        instance = cls().set_url(str(image_path)).set_size(size_value)
+        instance.set_position(position[0], position[1])
+        return instance
