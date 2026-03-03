@@ -13,7 +13,9 @@ from .manim_constants import (
     OBJECT_APPLIERS,
     OBJECT_BUILDERS,
     resolve_animation_class,
+    resolve_movement,
 )
+from .movements import MovementBase
 from .objects.arrow_objects import (
     ArrowObject,
 )
@@ -29,7 +31,7 @@ class Elements:
     image: ImageObject | None = None
     spawn_animation: ShapeAnimation | ArrowAnimation | ImageAnimation = field(default_factory=ShapePopUpAnimation)
     idle_animation: ShapeAnimation | ArrowAnimation | ImageAnimation | None = None
-    movement: object | None = None
+    movement: MovementBase | object | None = None
     remove_animation: ShapeAnimation | ArrowAnimation | ImageAnimation = field(default_factory=ShapePopOutAnimation)
     _mobject: Mobject | None = field(default=None, init=False, repr=False)
 
@@ -59,7 +61,7 @@ class Elements:
         self.idle_animation = animation
         return self
 
-    def set_movement(self, movement: object) -> Elements:
+    def set_movement(self, movement: MovementBase | object) -> Elements:
         self.movement = movement
         return self
 
@@ -95,7 +97,14 @@ class Elements:
         self._run_idle(scene)
 
     def move(self, scene: Scene) -> None:
-        self._mobject is not None and callable(self.movement) and self.movement(scene, self._mobject)
+        self._mobject is not None and self.movement is not None and self._run_movement(scene)
+
+    def _run_movement(self, scene: Scene) -> None:
+        movement_handlers: dict[bool, Callable[[], None]] = {
+            True: lambda: self.movement(scene, self._mobject),
+            False: lambda: hasattr(self.movement, "bind") and hasattr(self.movement, "animate") and self.movement.bind(self._mobject).animate(scene),
+        }
+        movement_handlers[callable(self.movement)]()
 
     def close(self, scene: Scene) -> None:
         self._mobject is not None and self.remove_animation.bind(self._mobject).animate(scene)
@@ -122,10 +131,21 @@ class ElementBuilder:
         remove_animation = self._build_animation(self.config.get("remove_animation"), "remove", element_type)
         self._apply_animation(element.set_remove_animation, remove_animation)
 
+        movement = self._build_movement(self.config.get("movement"))
+        movement is not None and element.set_movement(movement)
+
         return element
 
     def _build_object(self, element_type: str) -> object | None:
         return OBJECT_BUILDERS.get(element_type, lambda _config: None)(self.config)
+
+    @staticmethod
+    def _build_movement(movement_config: Any) -> MovementBase | None:
+        movement_map: dict[bool, Callable[[], MovementBase | None]] = {
+            True: lambda: resolve_movement(movement_config),
+            False: lambda: None,
+        }
+        return movement_map[isinstance(movement_config, dict)]()
 
     @staticmethod
     def _apply_animation(setter: Callable[[ShapeAnimation | ArrowAnimation | ImageAnimation], Elements], animation: ShapeAnimation | ArrowAnimation | ImageAnimation | None) -> None:

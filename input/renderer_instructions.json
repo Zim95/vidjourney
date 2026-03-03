@@ -29,6 +29,24 @@
       "spawn_animation": "unidirectional_dotted_spawn",
       "idle_animation": "dotted_unidirectional_idle",
       "remove_animation": "unidirectional_dotted_remove"
+    },
+    {
+      "name": "FLOW_DOT",
+      "type": "shape",
+      "shape": "circle",
+      "position": [-1.5, 0.0],
+      "size": 0.12,
+      "fill_color": "WHITE",
+      "border_color": "WHITE",
+      "spawn_animation": "shape_popup",
+      "remove_animation": "shape_popout",
+      "movement": {
+        "type": "straight",
+        "path": [[-1.5, 0.0], [-0.5, 0.0], [0.5, 0.5], [1.5, 0.0]],
+        "duration": 0.7,
+        "repeat": 3,
+        "reverse": false
+      }
     }
   ],
   "sequence": [
@@ -37,8 +55,11 @@
     {"action": "spawn", "target": "CACHE"},
     {"action": "wait", "duration": 0.3},
     {"action": "spawn", "target": "CACHE_TO_SERVER"},
-    {"action": "wait", "duration": 0.8},
+    {"action": "wait", "duration": 0.3},
+    {"action": "spawn", "target": "FLOW_DOT"},
+    {"action": "move", "target": "FLOW_DOT"},
     {"action": "close", "target": "CACHE_TO_SERVER"},
+    {"action": "close", "target": "FLOW_DOT"},
     {"action": "close", "target": "CACHE"},
     {"action": "close", "target": "SERVER"}
   ]

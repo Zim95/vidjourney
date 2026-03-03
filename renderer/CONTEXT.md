@@ -349,3 +349,50 @@ In main, lets create a manim runner function which uses subprocess to call manim
 Main should only know which runner to call. Thats it.
 
 Also add manim.env to gitignore
+
+
+Movement:
+---------
+- Movement should follow a path. If there's only two points. The movement is a straight line. We could however break them down into multiple points.
+- For example, 0,0 -----> 2,2 is a straight movement
+- However, we could do, 0,0 --> 1,0 ---> 1,2 ---> 2, 2 This would be a bent movement
+- A curve would just be more points across a point.
+- We need upwardsbent, downwardsbent, straight and have ways to reverse them.
+Repeat can be set as well. This could be used as data flow.
+- Reverse should be enabled. The same path should be travelled backwards.
+- Repeat option should be set to repeat the same behaviour.
+
+Example JSON
+"movement": {
+  "path": [[0,0], [1,0], [1,2], [2,2]],
+  "duration": 2,
+  "repeat": 3,
+  "reverse": false
+}
+
+Lets create a movement directory inside manim.
+
+- Movement Base class (movements.py)
+  - duration
+  - repeat
+  - reverse
+  - object
+  - path --> The points of the path.
+
+  StraightMovement Inherits Movement (straight_movement.py)
+  - Should follow a straight path across two points.
+
+  BentMovement Inherits Movement (bent_movement.py)
+  - break_down_path - Should break down the path if only two points are provided. We should be able to use the path of arrows as well.
+
+  CurveMovement Inherits Movement (curve_movement.py)
+  - break_down_path - Should break down the path if only two points are provided. We should be able to use the path of arrows as well. Follow the path if provided basically.
+
+- Make sure to incorporate this in elements and elements builder. Follow the current format of doing this. manim_constants.py should have all the constants. Use dictionary instead of if else.
+
+Test Case:
+-----------
+In our existing test case.
+- Lets create a very small circle. Fill should be white.
+- It should go from cache to server.
+- Repeat 3 times.

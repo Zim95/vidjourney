@@ -23,6 +23,7 @@ from .animations import (
     UnidirectionalSolidArrowSpawnAnimation,
 )
 from .elements import ElementBuilder, Elements
+from .movements import BentMovement, CurveMovement, MovementBase, StraightMovement
 from .objects import (
     ArrowObject,
     BidirectionalDottedArrow,
@@ -71,6 +72,10 @@ __all__ = [
     "ImageAnimation",
     "ImagePopUpAnimation",
     "ImagePopOutAnimation",
+    "MovementBase",
+    "StraightMovement",
+    "BentMovement",
+    "CurveMovement",
     "Elements",
     "ElementBuilder",
     "run_manim_scene",

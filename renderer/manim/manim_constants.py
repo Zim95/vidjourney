@@ -28,6 +28,7 @@ from .objects.arrow_objects import (
 )
 from .objects.image_objects import ImageObject
 from .objects.shape_objects import CircleShape, RectangleShape, ShapeObject, SquareShape
+from .movements import BentMovement, CurveMovement, MovementBase, StraightMovement
 
 DEFAULT_SHAPE_OBJECT: Type[ShapeObject] = SquareShape
 DEFAULT_ARROW_OBJECT: Type[ArrowObject] = UnidirectionalDottedArrow
@@ -91,6 +92,16 @@ OBJECT_APPLIERS: dict[str, Callable[[Any, object | None], None]] = {
     "image": lambda element, built_object: built_object is not None and element.set_image_object(built_object),
 }
 
+MOVEMENT_BUILDERS: dict[str, Callable[[dict[str, Any]], MovementBase]] = {
+    "straight": lambda config: StraightMovement.build(config),
+    "bent": lambda config: BentMovement.build(config),
+    "upwardsbent": lambda config: BentMovement.build(config, bend_direction="up"),
+    "downwardsbent": lambda config: BentMovement.build(config, bend_direction="down"),
+    "curve": lambda config: CurveMovement.build(config),
+    "upwardscurve": lambda config: CurveMovement.build(config, curve_direction="up"),
+    "downwardscurve": lambda config: CurveMovement.build(config, curve_direction="down"),
+}
+
 ANIMATION_CLASS_RESOLVERS: dict[str, Callable[[str, str], Type[ShapeAnimation | ArrowAnimation | ImageAnimation] | None]] = {
     "shape": lambda phase, _animation_name: SHAPE_PHASE_ANIMATION_MAP.get(phase),
     "image": lambda phase, _animation_name: IMAGE_PHASE_ANIMATION_MAP.get(phase),
@@ -100,3 +111,9 @@ ANIMATION_CLASS_RESOLVERS: dict[str, Callable[[str, str], Type[ShapeAnimation | 
 
 def resolve_animation_class(element_type: str, phase: str, animation_name: str) -> Type[ShapeAnimation | ArrowAnimation | ImageAnimation] | None:
     return ANIMATION_CLASS_RESOLVERS.get(element_type, lambda _phase, _name: None)(phase, animation_name)
+
+
+def resolve_movement(config: dict[str, Any]) -> MovementBase | None:
+    movement_type = str(config.get("type", "straight")).lower()
+    builder = MOVEMENT_BUILDERS.get(movement_type, MOVEMENT_BUILDERS.get("straight"))
+    return builder(config) if builder is not None else None
