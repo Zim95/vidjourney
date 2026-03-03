@@ -396,3 +396,17 @@ In our existing test case.
 - Lets create a very small circle. Fill should be white.
 - It should go from cache to server.
 - Repeat 3 times.
+
+Test Case Update:
+------------------
+- I have added a server.svg at the root of the directory.
+- Use that for server instead of square with text.
+- update renderer_instructions.json
+
+
+ImageText:
+----------
+1. Lets add image text that appears below the image.
+2. That way everyone will know what the image is.
+3. Also can we change the text font to Arial instead of times new roman.
+4. The text font change should apply to all.

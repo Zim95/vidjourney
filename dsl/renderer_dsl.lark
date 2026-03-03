@@ -1,0 +1,83 @@
+ELEMENT: "ELEMENT"
+TYPE: "TYPE"
+TEXT: "TEXT"
+POSITION: "POSITION"
+SIZE: "SIZE"
+SHAPE: "SHAPE"
+URL: "URL"
+FILL: "FILL"
+BORDER: "BORDER"
+SPAWN: "SPAWN"
+IDLE: "IDLE"
+MOVE: "MOVE"
+REMOVE: "REMOVE"
+TO: "TO"
+PATH: "PATH"
+DURATION: "DURATION"
+REPEAT: "REPEAT"
+REVERSE: "REVERSE"
+SEQUENCE: "SEQUENCE"
+WAIT: "WAIT"
+END: "END"
+CLOSE: "CLOSE"
+
+start: element_block* sequence_block?
+
+element_block: ELEMENT IDENT TYPE element_type element_stmt+ END
+
+element_type: SHAPE_KIND
+            | ARROW_KIND
+            | IMAGE_KIND
+
+element_stmt: label_stmt
+            | position_stmt
+            | size_stmt
+            | shape_stmt
+            | url_stmt
+            | fill_stmt
+            | border_stmt
+            | spawn_stmt
+            | idle_stmt
+            | move_stmt
+            | remove_stmt
+
+label_stmt: TEXT ESCAPED_STRING
+position_stmt: POSITION point
+size_stmt: SIZE NUMBER
+shape_stmt: SHAPE IDENT
+url_stmt: URL ESCAPED_STRING
+fill_stmt: FILL color
+border_stmt: BORDER color
+spawn_stmt: SPAWN IDENT NUMBER
+idle_stmt: IDLE IDENT NUMBER
+remove_stmt: REMOVE IDENT NUMBER
+
+move_stmt: MOVE IDENT move_path DURATION NUMBER repeat_clause? reverse_clause?
+move_path: TO point
+         | PATH point_list
+repeat_clause: REPEAT INT
+reverse_clause: REVERSE
+
+point_list: "[" point ("," point)* ","? "]"
+point: "(" NUMBER "," NUMBER ")"
+
+sequence_block: SEQUENCE sequence_stmt+ END
+sequence_stmt: SPAWN IDENT
+             | IDLE IDENT
+             | MOVE IDENT
+             | CLOSE IDENT
+             | WAIT NUMBER
+
+color: IDENT | ESCAPED_STRING
+
+SHAPE_KIND: /shape/i
+ARROW_KIND: /arrow/i
+IMAGE_KIND: /image/i
+
+IDENT: /[A-Za-z_][A-Za-z0-9_]*/
+
+%import common.ESCAPED_STRING
+%import common.SIGNED_NUMBER -> NUMBER
+%import common.INT
+%import common.WS
+%ignore WS

@@ -2,13 +2,13 @@
   "elements": [
     {
       "name": "SERVER",
-      "type": "shape",
-      "shape": "square",
+      "type": "image",
+      "url": "server.svg",
+      "text": "SERVER",
       "position": [2.5, 0.0],
       "size": 1.6,
-      "text": "SERVER",
-      "spawn_animation": "shape_popup",
-      "remove_animation": "shape_popout"
+      "spawn_animation": "image_popup",
+      "remove_animation": "image_popout"
     },
     {
       "name": "CACHE",

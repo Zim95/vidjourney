@@ -1,0 +1,52 @@
+ELEMENT SERVER TYPE image
+    URL "server.svg"
+    TEXT "SERVER"
+    POSITION (2.5,0.0)
+    SIZE 1.6
+    SPAWN image_popup 1
+    REMOVE image_popout 1
+END
+
+ELEMENT CACHE TYPE shape
+    SHAPE square
+    TEXT "CACHE"
+    POSITION (-2.5,0.0)
+    SIZE 1.6
+    SPAWN shape_popup 1
+    REMOVE shape_popout 1
+END
+
+ELEMENT CACHE_TO_SERVER TYPE arrow
+    SHAPE unidirectional_dotted
+    POSITION (-1.5,0.0)
+    SPAWN unidirectional_dotted_spawn 1
+    IDLE dotted_unidirectional_idle 1
+    MOVE straight TO (1.5,0.0) DURATION 0
+    REMOVE unidirectional_dotted_remove 1
+END
+
+ELEMENT FLOW_DOT TYPE shape
+    SHAPE circle
+    POSITION (-1.5,0.0)
+    SIZE 0.12
+    FILL WHITE
+    BORDER WHITE
+    SPAWN shape_popup 1
+    MOVE straight PATH [(-1.5,0.0), (-0.5,0.0), (0.5,0.5), (1.5,0.0)] DURATION 0.7 REPEAT 3
+    REMOVE shape_popout 1
+END
+
+SEQUENCE
+    SPAWN SERVER
+    WAIT 0.3
+    SPAWN CACHE
+    WAIT 0.3
+    SPAWN CACHE_TO_SERVER
+    WAIT 0.3
+    SPAWN FLOW_DOT
+    MOVE FLOW_DOT
+    CLOSE CACHE_TO_SERVER
+    CLOSE FLOW_DOT
+    CLOSE CACHE
+    CLOSE SERVER
+END

@@ -35,7 +35,7 @@ class ShapeObject(ObjectBase):
         if self.text is None:
             return shape_mobject
 
-        label = Text(self.text, color=self.text_color)
+        label = Text(self.text, color=self.text_color, font="Arial")
         label.scale_to_fit_width(max(shape_mobject.width * 0.8, 0.2))
         label.move_to(shape_mobject.get_center())
         return VGroup(shape_mobject, label)
