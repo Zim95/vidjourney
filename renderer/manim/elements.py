@@ -89,8 +89,6 @@ class Elements:
 
     def spawn(self, scene: Scene) -> Mobject:
         self._mobject is None and self._spawn_once(scene)
-        self._run_idle(scene)
-
         return self._mobject
 
     def idle(self, scene: Scene) -> None:

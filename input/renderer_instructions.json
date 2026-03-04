@@ -3,7 +3,7 @@
     {
       "name": "SERVER",
       "type": "image",
-      "url": "server.svg",
+      "url": "images/server.svg",
       "text": "SERVER",
       "position": [
         2.5,

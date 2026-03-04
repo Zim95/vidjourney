@@ -281,3 +281,7 @@ The arrow is waaay small. Its not proper. What is the difference in renderer_ins
 Fix slowness:
 -------------
 Why is the video so slow?? Did we do something make things slower? For generation and all?
+
+Slowness cause:
+---------------
+I see whats happening. We are running things sequentially. So idle animation ran for a few seconds then the data circle came up. thats the slowness

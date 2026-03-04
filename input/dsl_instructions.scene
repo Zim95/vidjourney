@@ -1,5 +1,5 @@
 ELEMENT SERVER TYPE image
-    URL "server.svg"
+    URL "images/server.svg"
     TEXT "SERVER"
     POSITION (2.5,0.0)
     SIZE 1.6
