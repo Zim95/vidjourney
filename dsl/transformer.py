@@ -68,11 +68,24 @@ class SceneModelTransformer:
     def _sequence_from_stmt(self, statement: Tree) -> SequenceStepModel:
         action_token = statement.children[0]
         action = self._token_value(action_token).lower()
+        if action in {"spawn", "close"}:
+            close_node = statement.children[1]
+            targets = self._target_list_from_node(close_node)
+            return SequenceStepModel(action=action, target=targets[0], targets=targets)
+
         wait_handler = {
             True: lambda: SequenceStepModel(action=action, duration=self._number_token(statement.children[1])),
             False: lambda: SequenceStepModel(action=action, target=self._token_value(statement.children[1])),
         }
         return wait_handler[action == "wait"]()
+
+    @staticmethod
+    def _target_list_from_node(node: Tree | Token) -> list[str]:
+        if isinstance(node, Token):
+            return [str(node)]
+
+        targets = [str(child) for child in node.children if isinstance(child, Token)]
+        return targets or []
 
     def _movement_from_stmt(self, stmt: Tree, current_position: list[float] | None) -> MovementModel:
         movement_type = self._token_value(stmt.children[1]).lower()

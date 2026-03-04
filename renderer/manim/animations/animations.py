@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from manim import Scene
+from manim import Animation, Scene
 
 
 @dataclass
@@ -17,6 +17,10 @@ class AnimationBase:
         return self
 
     def animate(self, scene: Scene) -> None:
+        animation = self.as_animation()
+        animation is not None and scene.play(animation)
+
+    def as_animation(self) -> Animation | None:
         raise NotImplementedError
 
     @classmethod

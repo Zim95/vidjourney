@@ -285,3 +285,31 @@ Why is the video so slow?? Did we do something make things slower? For generatio
 Slowness cause:
 ---------------
 I see whats happening. We are running things sequentially. So idle animation ran for a few seconds then the data circle came up. thats the slowness
+
+Background tasks:
+------------------
+Any form of animation should happen in the background.
+Idle animation should also happen in the background.
+Spawn should happen sequentially, but what happens to the spawned element should happen in the background - it can spin - that would be idle animation, it could move - that would be movement. It can spin and move while spinning. Both should happen at the same time.
+How do we achieve this?
+
+
+Close in parallel:
+-------------------
+Can we close multiple things at the same time?
+Maybe we want to close server and cache at the same time. After we delete arrow and data circle
+
+
+Spawn in parallel:
+-------------------
+Can we spawn multiple things at the same time.
+For example, spawn server and cache at the same time. Then arrow and flow dot.
+
+
+Stuck manim terminal:
+--------------------
+So before when i ran the code using pythoh main.py --renderer manim. The render finished and the video was generated.
+
+Now its stuck in playing preview or something.
+
+How do we make it complete.

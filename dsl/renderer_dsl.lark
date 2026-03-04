@@ -62,11 +62,13 @@ point_list: "[" point ("," point)* ","? "]"
 point: "(" NUMBER "," NUMBER ")"
 
 sequence_block: SEQUENCE sequence_stmt+ END
-sequence_stmt: SPAWN IDENT
+sequence_stmt: SPAWN target_list
              | IDLE IDENT
              | MOVE IDENT
-             | CLOSE IDENT
+             | CLOSE target_list
              | WAIT NUMBER
+
+target_list: IDENT ("," IDENT)*
 
 color: IDENT | ESCAPED_STRING
 

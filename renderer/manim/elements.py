@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Type
 
-from manim import Mobject, Scene
+from manim import Animation, Mobject, Scene
 
 from .animations.arrow_animations import ArrowAnimation
 from .animations.image_animations import ImageAnimation
@@ -79,16 +79,47 @@ class Elements:
         fallback = {True: self.shape, False: SquareShape()}[isinstance(self.shape, (ShapeObject, ArrowObject))]
         return resolved or fallback
 
-    def _spawn_once(self, scene: Scene) -> None:
+    def _spawn_once(self) -> None:
         drawable = self._resolve_drawable()
         self._mobject = drawable.draw()
-        self.spawn_animation.bind(self._mobject).animate(scene)
+
+    def spawn_clip(self) -> Animation | None:
+        self._mobject is None and self._spawn_once()
+        return self._mobject is not None and self.spawn_animation.bind(self._mobject).as_animation() or None
+
+    def idle_clip(self) -> Animation | None:
+        return self._mobject is not None and self.idle_animation is not None and self.idle_animation.bind(self._mobject).as_animation() or None
+
+    def move_clip(self) -> Animation | None:
+        movement_handlers: dict[bool, Callable[[], Animation | None]] = {
+            True: lambda: None,
+            False: lambda: self._mobject is not None and self.movement is not None and self.movement.bind(self._mobject).as_animation() or None,
+        }
+        return movement_handlers[callable(self.movement)]()
+
+    def close_clip(self) -> Animation | None:
+        return self._mobject is not None and self.remove_animation.bind(self._mobject).as_animation() or None
+
+    def spawn_duration(self) -> float:
+        return float(self.spawn_animation.duration)
+
+    def move_duration(self) -> float:
+        movement_handlers: dict[bool, Callable[[], float]] = {
+            True: lambda: 0.0,
+            False: lambda: self._mobject is not None and self.movement is not None and float(self.movement.bind(self._mobject).total_duration()) or 0.0,
+        }
+        return movement_handlers[callable(self.movement)]()
+
+    def close_duration(self) -> float:
+        return float(self.remove_animation.duration)
 
     def _run_idle(self, scene: Scene) -> None:
-        self._mobject is not None and self.idle_animation is not None and self.idle_animation.bind(self._mobject).animate(scene)
+        clip = self.idle_clip()
+        clip is not None and scene.play(clip)
 
     def spawn(self, scene: Scene) -> Mobject:
-        self._mobject is None and self._spawn_once(scene)
+        clip = self.spawn_clip()
+        clip is not None and scene.play(clip, run_time=self.spawn_duration())
         return self._mobject
 
     def idle(self, scene: Scene) -> None:
@@ -98,14 +129,16 @@ class Elements:
         self._mobject is not None and self.movement is not None and self._run_movement(scene)
 
     def _run_movement(self, scene: Scene) -> None:
+        move_clip = self.move_clip()
         movement_handlers: dict[bool, Callable[[], None]] = {
             True: lambda: self.movement(scene, self._mobject),
-            False: lambda: hasattr(self.movement, "bind") and hasattr(self.movement, "animate") and self.movement.bind(self._mobject).animate(scene),
+            False: lambda: move_clip is not None and scene.play(move_clip, run_time=self.move_duration()),
         }
         movement_handlers[callable(self.movement)]()
 
     def close(self, scene: Scene) -> None:
-        self._mobject is not None and self.remove_animation.bind(self._mobject).animate(scene)
+        clip = self.close_clip()
+        clip is not None and scene.play(clip, run_time=self.close_duration())
         self._mobject is not None and setattr(self, "_mobject", None)
 
 

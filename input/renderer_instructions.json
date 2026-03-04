@@ -115,7 +115,11 @@
   "sequence": [
     {
       "action": "spawn",
-      "target": "SERVER"
+      "target": "SERVER",
+      "targets": [
+        "SERVER",
+        "CACHE"
+      ]
     },
     {
       "action": "wait",
@@ -123,7 +127,10 @@
     },
     {
       "action": "spawn",
-      "target": "CACHE"
+      "target": "CACHE_TO_SERVER",
+      "targets": [
+        "CACHE_TO_SERVER"
+      ]
     },
     {
       "action": "wait",
@@ -131,15 +138,10 @@
     },
     {
       "action": "spawn",
-      "target": "CACHE_TO_SERVER"
-    },
-    {
-      "action": "wait",
-      "duration": 0.3
-    },
-    {
-      "action": "spawn",
-      "target": "FLOW_DOT"
+      "target": "FLOW_DOT",
+      "targets": [
+        "FLOW_DOT"
+      ]
     },
     {
       "action": "move",
@@ -147,19 +149,25 @@
     },
     {
       "action": "close",
-      "target": "CACHE_TO_SERVER"
+      "target": "CACHE_TO_SERVER",
+      "targets": [
+        "CACHE_TO_SERVER"
+      ]
     },
     {
       "action": "close",
-      "target": "FLOW_DOT"
+      "target": "FLOW_DOT",
+      "targets": [
+        "FLOW_DOT"
+      ]
     },
     {
       "action": "close",
-      "target": "CACHE"
-    },
-    {
-      "action": "close",
-      "target": "SERVER"
+      "target": "CACHE",
+      "targets": [
+        "CACHE",
+        "SERVER"
+      ]
     }
   ]
 }

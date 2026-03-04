@@ -72,12 +72,14 @@ class ElementModel:
 class SequenceStepModel:
     action: str
     target: str | None = None
+    targets: list[str] | None = None
     duration: float | None = None
 
     def to_dict(self) -> dict[str, Any]:
         key_values = {
             "action": self.action,
             "target": self.target,
+            "targets": self.targets,
             "duration": self.duration,
         }
         return {key: value for key, value in key_values.items() if value is not None}

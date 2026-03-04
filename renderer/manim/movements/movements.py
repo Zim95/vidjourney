@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from manim import MoveAlongPath, Mobject, Scene, VMobject
+from manim import Animation, MoveAlongPath, Mobject, Scene, Succession, VMobject
 
 
 Point2D = tuple[float, float]
@@ -37,8 +37,26 @@ class MovementBase:
         return path
 
     def animate(self, scene: Scene) -> None:
+        animation = self.as_animation()
+        animation is not None and scene.play(animation)
+
+    def as_animation(self) -> Animation | None:
         valid = self.object is not None and len(self.path) >= 2
-        valid and self._animate_valid(scene)
+        if not valid:
+            return None
+
+        base_path = self.break_down_path(self.path)
+        clips = [
+            MoveAlongPath(self.object, self._to_path_mobject(current_path), run_time=self.duration)
+            for current_path in self._expanded_paths(base_path)
+        ]
+        return Succession(*clips) if clips else None
+
+    def total_duration(self) -> float:
+        valid = self.object is not None and len(self.path) >= 2
+        if not valid:
+            return 0.0
+        return float(len(self._expanded_paths(self.break_down_path(self.path)))) * float(self.duration)
 
     def _animate_valid(self, scene: Scene) -> None:
         base_path = self.break_down_path(self.path)
