@@ -4,9 +4,20 @@ import argparse
 import subprocess
 import sys
 from pathlib import Path
-from typing import Callable
 
-DEFAULT_ENV_FILE = Path("manim.env")
+from config.constants import (
+    DSL_GRAMMAR_FILE,
+    DSL_SCENE_FILE,
+    ENV_FILE,
+    MANIM_PREVIEW,
+    MANIM_QUALITY,
+    MANIM_SCENE_CLASS,
+    MANIM_SCENE_FILE,
+    MANIM_VENV_PYTHON,
+    RENDERER_INSTRUCTIONS_FILE,
+)
+from dsl.parser import parse_scene
+from dsl.transformer import SceneModelTransformer
 
 
 def _load_env_config(env_file: Path) -> dict[str, str]:
@@ -32,35 +43,40 @@ def _to_bool(value: str, default: bool) -> bool:
     return token_map.get(normalized, default)
 
 
-def run_manim_runner(env_file: Path) -> None:
-    config = _load_env_config(env_file)
-    venv_python = Path(".venv/bin/python")
-    default_python = {True: str(venv_python), False: sys.executable}[venv_python.exists()]
+def run_manim_runner() -> None:
+    config = _load_env_config(ENV_FILE)
+    default_python = {True: str(MANIM_VENV_PYTHON), False: sys.executable}[MANIM_VENV_PYTHON.exists()]
     manim_python = config.get("MANIM_PYTHON", default_python)
-    scene_file = config.get("MANIM_SCENE_FILE", "renderer/manim/manim_runner.py")
-    scene_class = config.get("MANIM_SCENE_CLASS", "ManimScene")
-    quality = config.get("MANIM_QUALITY", "ql")
-    preview = _to_bool(config.get("MANIM_PREVIEW", "true"), default=True)
+    scene_file = config.get("MANIM_SCENE_FILE", MANIM_SCENE_FILE)
+    scene_class = config.get("MANIM_SCENE_CLASS", MANIM_SCENE_CLASS)
+    quality = config.get("MANIM_QUALITY", MANIM_QUALITY)
+    preview = _to_bool(config.get("MANIM_PREVIEW", MANIM_PREVIEW), default=True)
 
     preview_flag_prefix = {True: "-p", False: "-"}[preview]
     command = [manim_python, "-m", "manim", f"{preview_flag_prefix}{quality}", scene_file, scene_class]
     subprocess.run(command, check=True)
 
 
+def run_manim_pipeline() -> None:
+    run_dsl_to_json()
+    run_manim_runner()
+
+
+def run_dsl_to_json() -> None:
+    ast = parse_scene(scene_path=DSL_SCENE_FILE, grammar_path=DSL_GRAMMAR_FILE)
+    scene_model = SceneModelTransformer().transform(ast)
+    scene_model.write_json(RENDERER_INSTRUCTIONS_FILE)
+
+
 def _parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Unified renderer runner")
+    parser = argparse.ArgumentParser(description="Automated DSL to Manim runner")
     parser.add_argument("--renderer", default="manim", choices=["manim"])
-    parser.add_argument("--env-file", default=str(DEFAULT_ENV_FILE))
     return parser.parse_args()
 
 
 def main() -> None:
-    args = _parse_args()
-    runners: dict[str, Callable[[Path], None]] = {
-        "manim": run_manim_runner,
-    }
-    runner = runners.get(args.renderer, run_manim_runner)
-    runner(Path(args.env_file))
+    _parse_args()
+    run_manim_pipeline()
 
 
 if __name__ == "__main__":

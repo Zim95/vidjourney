@@ -230,3 +230,54 @@ TextFormat and ImageText Update:
 2. This section does not have to worry about text format.
 3. But it has to worry about the text being added to image.
 4. Looking at renderer_instructions.json, Add the support to renderer_dsl.lark and dsl_instructions.scene
+
+Turning things into an AST:
+---------------------------
+Next up, we need to build a dsl parser. Needs to take the scene file, use lark and turn it into an AST.
+
+Fixing Some things:
+--------------------
+- So we should not have main function in parser and all.
+- We need to have that control in main.py.
+- Lets wire that up in main.
+
+Add SceneModeller Data Class:
+------------------------------
+- Next up we need data classes to turn AST to dataclasses.
+- These dataclasses need to have a to_json method and write_json method.
+- The idea is to finally turn the AST into renderer_instructions.json.
+- But first we need to model the scene and then turn that into json and then write to output.
+- The output must be configurable and passed from main. In our case, it should be renderer_instructions.json
+
+
+Cleaning up Main:
+-----------------
+Why do we still have runner_actions?? dsl-ast dsl-json should not be part of terminal commands.
+
+They should be automated. The idea is input would only have dsl_instructions.scene.
+
+Our job is to generate renderer_instruction.json based on dsl_insturcutions.scene
+
+
+Moving our configs:
+-------------------
+Lets move our configs to constants.
+Lets create a directory called config with __init__.py and constants.py
+
+Lets move all our DEFAULT configs there and use it directly from there. Not from the terminal.
+
+Lets remove the DEFAULT part from all the constants.
+
+Lets read them from os getenv and keep the current values as default when they are not available in the env.
+
+
+Fix arrow bug:
+--------------
+Read the difference between renderer_instructions copy.json and rednerer_instructions.json
+
+The arrow is waaay small. Its not proper. What is the difference in renderer_instruction? Why is DSL causing this issue?
+
+
+Fix slowness:
+-------------
+Why is the video so slow?? Did we do something make things slower? For generation and all?
