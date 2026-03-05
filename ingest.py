@@ -13,10 +13,13 @@ from ingestion import (
     split_into_chapters,
     validate_semantic_document,
 )
+from story_planner import build_scene_plan, build_story_plan_ai
 
 
 PDF_SOURCE_PATH = Path("/Users/namahshrestha/Downloads/Books/System Design/Designing Data Intensive Applications.pdf")
 INGESTION_OUTPUT_PATH = Path("input/ingestion_structure.json")
+STORY_PLAN_OUTPUT_PATH = Path("input/story_plan.json")
+STORY_PLAN_AI_OUTPUT_PATH = Path("input/story_plan_ai.json")
 INGEST_LOG_LEVEL = "INFO"
 
 
@@ -29,15 +32,17 @@ def _configure_logging() -> None:
     )
 
 
-def build_ingestion_structure(pdf_path: Path) -> dict:
+def build_ingestion_structure(pdf_path: Path) -> tuple[dict, dict, dict]:
     pdf_document = read_pdf(pdf_path)
     cleaned_document = clean_document(pdf_document)
     chaptered_document = split_into_chapters(cleaned_document)
     semantic_document = build_semantic_document(chaptered_document)
     semantic_validation = validate_semantic_document(semantic_document)
     metadata_enriched = enrich_with_structural_metadata(semantic_document)
+    story_plan = build_scene_plan(metadata_enriched)
+    story_plan_ai = build_story_plan_ai(story_plan)
 
-    return {
+    structure = {
         "source_pdf": str(pdf_path),
         "page_count": len(pdf_document.pages),
         "cleaned_document": asdict(cleaned_document),
@@ -46,6 +51,7 @@ def build_ingestion_structure(pdf_path: Path) -> dict:
         "semantic_validation": semantic_validation.to_dict(),
         "metadata_enriched_document": metadata_enriched.to_dict(),
     }
+    return structure, story_plan.to_dict(), story_plan_ai.to_dict()
 
 
 def write_structure(output_path: Path, structure: dict) -> None:
@@ -62,9 +68,13 @@ def main() -> None:
             "Update PDF_SOURCE_PATH in ingest.py to your current PDF location."
         )
 
-    structure = build_ingestion_structure(PDF_SOURCE_PATH)
+    structure, story_plan, story_plan_ai = build_ingestion_structure(PDF_SOURCE_PATH)
     write_structure(INGESTION_OUTPUT_PATH, structure)
+    write_structure(STORY_PLAN_OUTPUT_PATH, story_plan)
+    write_structure(STORY_PLAN_AI_OUTPUT_PATH, story_plan_ai)
     print(f"Ingestion complete: {INGESTION_OUTPUT_PATH}")
+    print(f"Story plan complete: {STORY_PLAN_OUTPUT_PATH}")
+    print(f"Story AI plan complete: {STORY_PLAN_AI_OUTPUT_PATH}")
 
 
 if __name__ == "__main__":
