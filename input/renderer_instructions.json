@@ -3,7 +3,7 @@
     {
       "name": "SERVER",
       "type": "image",
-      "url": "images/server.svg",
+      "url": "server.svg",
       "text": "SERVER",
       "position": [
         2.5,
@@ -46,14 +46,6 @@
         -1.5,
         0.0
       ],
-      "from": [
-        -1.5,
-        0.0
-      ],
-      "to": [
-        1.5,
-        0.0
-      ],
       "spawn_animation": {
         "type": "unidirectional_dotted_spawn",
         "duration": 1.0
@@ -65,6 +57,22 @@
       "remove_animation": {
         "type": "unidirectional_dotted_remove",
         "duration": 1.0
+      },
+      "movement": {
+        "type": "straight",
+        "path": [
+          [
+            -1.5,
+            0.0
+          ],
+          [
+            1.5,
+            0.0
+          ]
+        ],
+        "duration": 0.0,
+        "repeat": 1,
+        "reverse": false
       }
     },
     {
@@ -115,11 +123,7 @@
   "sequence": [
     {
       "action": "spawn",
-      "target": "SERVER",
-      "targets": [
-        "SERVER",
-        "CACHE"
-      ]
+      "target": "SERVER"
     },
     {
       "action": "wait",
@@ -127,10 +131,7 @@
     },
     {
       "action": "spawn",
-      "target": "CACHE_TO_SERVER",
-      "targets": [
-        "CACHE_TO_SERVER"
-      ]
+      "target": "CACHE"
     },
     {
       "action": "wait",
@@ -138,10 +139,15 @@
     },
     {
       "action": "spawn",
-      "target": "FLOW_DOT",
-      "targets": [
-        "FLOW_DOT"
-      ]
+      "target": "CACHE_TO_SERVER"
+    },
+    {
+      "action": "wait",
+      "duration": 0.3
+    },
+    {
+      "action": "spawn",
+      "target": "FLOW_DOT"
     },
     {
       "action": "move",
@@ -149,25 +155,19 @@
     },
     {
       "action": "close",
-      "target": "CACHE_TO_SERVER",
-      "targets": [
-        "CACHE_TO_SERVER"
-      ]
+      "target": "CACHE_TO_SERVER"
     },
     {
       "action": "close",
-      "target": "FLOW_DOT",
-      "targets": [
-        "FLOW_DOT"
-      ]
+      "target": "FLOW_DOT"
     },
     {
       "action": "close",
-      "target": "CACHE",
-      "targets": [
-        "CACHE",
-        "SERVER"
-      ]
+      "target": "CACHE"
+    },
+    {
+      "action": "close",
+      "target": "SERVER"
     }
   ]
 }
