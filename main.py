@@ -1,23 +1,26 @@
 from __future__ import annotations
 
 import argparse
+import os
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from config.constants import (
+from src.config.constants import (
     DSL_GRAMMAR_FILE,
-    DSL_SCENE_FILE,
     ENV_FILE,
+    MAX_WORKERS,
     MANIM_PREVIEW,
     MANIM_QUALITY,
     MANIM_SCENE_CLASS,
     MANIM_SCENE_FILE,
     MANIM_VENV_PYTHON,
-    RENDERER_INSTRUCTIONS_FILE,
+    RENDER_DIR,
+    SCENES_DIR,
 )
-from dsl.parser import parse_scene
-from dsl.transformer import SceneModelTransformer
+from src.dsl.parser import parse_scene
+from src.dsl.transformer import SceneModelTransformer
 
 
 def _load_env_config(env_file: Path) -> dict[str, str]:
@@ -51,10 +54,35 @@ def run_manim_runner() -> None:
     scene_class = config.get("MANIM_SCENE_CLASS", MANIM_SCENE_CLASS)
     quality = config.get("MANIM_QUALITY", MANIM_QUALITY)
     preview = _to_bool(config.get("MANIM_PREVIEW", MANIM_PREVIEW), default=True)
+    render_files = sorted(RENDER_DIR.glob("*.render.json"))
+
+    if not render_files:
+        return
 
     preview_flag_prefix = {True: "-p", False: "-"}[preview]
-    command = [manim_python, "-m", "manim", f"{preview_flag_prefix}{quality}", scene_file, scene_class]
-    subprocess.run(command, check=True)
+    max_workers = min(MAX_WORKERS, len(render_files))
+
+    def _render_file(render_file: Path) -> None:
+        scene_name = render_file.name.removesuffix(".render.json")
+        command = [
+            manim_python,
+            "-m",
+            "manim",
+            f"{preview_flag_prefix}{quality}",
+            str(scene_file),
+            scene_class,
+            "-o",
+            scene_name,
+        ]
+        process_env = os.environ.copy()
+        process_env.update(config)
+        process_env["RENDERER_INSTRUCTIONS_FILE"] = str(render_file)
+        subprocess.run(command, check=True, env=process_env)
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = [executor.submit(_render_file, render_file) for render_file in render_files]
+        for future in futures:
+            future.result()
 
 
 def run_manim_pipeline() -> None:
@@ -63,9 +91,25 @@ def run_manim_pipeline() -> None:
 
 
 def run_dsl_to_json() -> None:
-    ast = parse_scene(scene_path=DSL_SCENE_FILE, grammar_path=DSL_GRAMMAR_FILE)
-    scene_model = SceneModelTransformer().transform(ast)
-    scene_model.write_json(RENDERER_INSTRUCTIONS_FILE)
+    SCENES_DIR.mkdir(parents=True, exist_ok=True)
+    RENDER_DIR.mkdir(parents=True, exist_ok=True)
+
+    scene_files = sorted(SCENES_DIR.glob("*.scene"))
+    if not scene_files:
+        return
+
+    max_workers = min(MAX_WORKERS, len(scene_files))
+
+    def _compile_scene(scene_file: Path) -> None:
+        ast = parse_scene(scene_path=scene_file, grammar_path=DSL_GRAMMAR_FILE)
+        scene_model = SceneModelTransformer().transform(ast)
+        output_path = RENDER_DIR / f"{scene_file.stem}.render.json"
+        scene_model.write_json(output_path)
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = [executor.submit(_compile_scene, scene_file) for scene_file in scene_files]
+        for future in futures:
+            future.result()
 
 
 def _parse_args() -> argparse.Namespace:

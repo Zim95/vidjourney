@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from config.constants import DSL_GRAMMAR_FILE, DSL_SCENE_FILE
+from src.config.constants import DSL_GRAMMAR_FILE, DSL_SCENE_FILE
 from lark import Lark, Tree
 
 

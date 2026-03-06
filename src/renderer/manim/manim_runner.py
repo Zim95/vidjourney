@@ -1,5 +1,6 @@
 # builtins
 import json
+import os
 import time
 from pathlib import Path
 from typing import Callable
@@ -7,7 +8,7 @@ from typing import Callable
 # third party
 from manim import Animation, Scene
 
-from renderer.manim.elements import ElementBuilder, Elements
+from src.renderer.manim.elements import ElementBuilder, Elements
 
 
 class ManimScene(Scene):
@@ -141,8 +142,18 @@ class ManimScene(Scene):
 
     @staticmethod
     def _resolve_instructions_path() -> Path:
+        environment_path = os.getenv("RENDERER_INSTRUCTIONS_FILE")
+        if environment_path:
+            return Path(environment_path)
+
+        pipeline_render_dir = Path("pipeline/render")
+        if pipeline_render_dir.exists() and pipeline_render_dir.is_dir():
+            render_files = sorted(pipeline_render_dir.glob("*.render.json"))
+            if render_files:
+                return render_files[0]
+
         candidates = [
-            Path("input/renderer_instructions.json"),
+            Path("pipeline/render/dsl_instructions.render.json"),
             Path("renderer_instructions.json"),
         ]
         return next(filter(lambda candidate: candidate.exists() and candidate.is_file(), candidates), candidates[0])
