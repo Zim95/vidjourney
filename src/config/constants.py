@@ -1,35 +1,47 @@
 from __future__ import annotations
 
-import os
+from configparser import ConfigParser
 from pathlib import Path
 
 
-def _env(name: str, fallback: str) -> str:
-	return os.getenv(name, fallback)
+ROOT_DIR = Path(__file__).resolve().parents[2]
+CONFIG_FILE = ROOT_DIR / "configuration.cfg"
+CONFIG = ConfigParser()
+if CONFIG_FILE.exists() and CONFIG_FILE.is_file():
+	CONFIG.read(CONFIG_FILE, encoding="utf-8")
 
 
-def _path_env(name: str, fallback: str) -> Path:
-	return Path(_env(name, fallback))
+def _cfg_text(section: str, key: str, fallback: str) -> str:
+	if CONFIG.has_section(section) and CONFIG.has_option(section, key):
+		return CONFIG.get(section, key)
+	return fallback
 
 
-def _int_env(name: str, fallback: int) -> int:
+def _cfg_int(section: str, key: str, fallback: int) -> int:
 	try:
-		return max(1, int(_env(name, str(fallback))))
+		return max(1, int(_cfg_text(section, key, str(fallback))))
 	except (TypeError, ValueError):
 		return fallback
 
 
-ENV_FILE = _path_env("ENV_FILE", "manim.env")
-SCENES_DIR = _path_env("SCENES_DIR", "pipeline/scenes")
-RENDER_DIR = _path_env("RENDER_DIR", "pipeline/render")
-MAX_WORKERS = _int_env("MAX_WORKERS", 4)
+def _cfg_path(section: str, key: str, fallback: str) -> Path:
+	return Path(_cfg_text(section, key, fallback))
 
-DSL_SCENE_FILE = _path_env("DSL_SCENE_FILE", str(SCENES_DIR / "dsl_instructions.scene"))
-DSL_GRAMMAR_FILE = _path_env("DSL_GRAMMAR_FILE", "src/dsl/renderer_dsl.lark")
-RENDERER_INSTRUCTIONS_FILE = _path_env("RENDERER_INSTRUCTIONS_FILE", str(RENDER_DIR / "dsl_instructions.render.json"))
 
-MANIM_SCENE_FILE = _env("MANIM_SCENE_FILE", "src/renderer/manim/manim_runner.py")
-MANIM_SCENE_CLASS = _env("MANIM_SCENE_CLASS", "ManimScene")
-MANIM_QUALITY = _env("MANIM_QUALITY", "ql")
-MANIM_PREVIEW = _env("MANIM_PREVIEW", "true")
-MANIM_VENV_PYTHON = _path_env("MANIM_VENV_PYTHON", ".venv/bin/python")
+SCENES_DIR = _cfg_path("scenes", "scenes_dir", "pipeline/scenes")
+SCENE_FILE_NAME = _cfg_text("scenes", "default_scene_file", "dsl_instructions.scene")
+
+RENDER_DIR = _cfg_path("render", "render_dir", "pipeline/render")
+RENDER_FILE_NAME = _cfg_text("render", "default_render_file", "dsl_instructions.render.json")
+SCENE_TO_RENDER_MAX_WORKERS = _cfg_int("render", "max_workers", 4)
+
+DSL_SCENE_FILE = SCENES_DIR / SCENE_FILE_NAME
+DSL_GRAMMAR_FILE = _cfg_path("scenes", "dsl_grammar_file", "src/dsl/renderer_dsl.lark")
+RENDERER_INSTRUCTIONS_FILE = RENDER_DIR / RENDER_FILE_NAME
+
+MANIM_PYTHON = _cfg_text("manim", "python", ".venv/bin/python")
+MANIM_SCENE_FILE = _cfg_text("manim", "scene_file", "src/renderer/manim/manim_runner.py")
+MANIM_SCENE_CLASS = _cfg_text("manim", "scene_class", "ManimScene")
+MANIM_QUALITY = _cfg_text("manim", "quality", "ql")
+MANIM_PREVIEW = _cfg_text("manim", "preview", "true")
+RENDER_TO_MANIM_MAX_WORKERS = _cfg_int("manim", "max_workers", 4)
