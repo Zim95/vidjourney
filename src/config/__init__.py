@@ -5,6 +5,7 @@ from .constants import (
     MANIM_PYTHON,
     MANIM_PREVIEW,
     MANIM_QUALITY,
+    INGEST_MAX_WORKERS,
     RENDER_TO_MANIM_MAX_WORKERS,
     MANIM_SCENE_CLASS,
     MANIM_SCENE_FILE,
@@ -28,4 +29,5 @@ __all__ = [
     "MANIM_SCENE_CLASS",
     "MANIM_QUALITY",
     "MANIM_PREVIEW",
+    "INGEST_MAX_WORKERS",
 ]

@@ -3,6 +3,8 @@ from __future__ import annotations
 from configparser import ConfigParser
 from pathlib import Path
 
+import os
+
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 CONFIG_FILE = ROOT_DIR / "configuration.cfg"
@@ -45,3 +47,6 @@ MANIM_SCENE_CLASS = _cfg_text("manim", "scene_class", "ManimScene")
 MANIM_QUALITY = _cfg_text("manim", "quality", "ql")
 MANIM_PREVIEW = _cfg_text("manim", "preview", "true")
 RENDER_TO_MANIM_MAX_WORKERS = _cfg_int("manim", "max_workers", 4)
+
+INGEST_MAX_WORKERS = os.cpu_count() or _cfg_int("ingestion", "max_workers", 1)
+INGEST_GLOBAL_READING_ORDER_STRIDE = 100_000
