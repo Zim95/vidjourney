@@ -43,13 +43,42 @@ Noise Removal:
 1. Header and Footer may have noise. Unwanted images, and all that may act as noise.
 2. We need to eliminate those things from each chapter, only keep whats required in the chapter.
 3. Can happen parallely for each chapter.
+4. Noise removal strategy.
+    For each page:
+    - Remove repeating header blocks
+    - Remove repeating footer blocks
+    - Remove page numbers
+    - Remove decorative vectors
+    - Fix hyphenation
+    - Reflow multi-columns
+    - Tag captions (don’t delete) ----> Captions should be tagged to images, tables, etc.
 
 
-Extract every element present in the chapter:
----------------------------------------------
-1. Extract each element such as text, image, tables, code blocks, etc from the chapter.
-2. We need to create directories to store these.
-3. Later on we need Computer Vision to generate scenes from them.
+Output of Section:
+-------------------
+1. We create a directory inside pipeline called sections.
+    - Here we store each section with elements in their reading order.
+    - The format should be
+        ```
+        section_number: <section_number>
+        page_number: <page_number>
+
+        HEADING <text>
+        PARAGRAPH <text>
+        IMAGE <location>
+
+        etc. and so on.... in whatever reading order they appear.
+        ```
+2. We should also create directories: pipeline/sections/resources.
+    - Inside this we need to create images, code_blocks, drawings, tables, etc.
+    - These are our extracted resources.
+    - The format should be <section_number>_<page_number>_<resource_name>.<extension>
+        example, 25_22_image.png This is the image.
+    - We need to refer to these locations inside our sections file.
+        Example,
+            ```
+            IMAGE pipeline/sections/resources/images/25_22_image.png
+            ```
 
 
 Association:

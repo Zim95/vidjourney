@@ -8,7 +8,7 @@ from pathlib import Path
 import fitz
 
 # local
-from src.ingestion.section_detection import SectionUtils, Sections
+from src.ingestion.section_detection import SectionUtils, Sections, SectionWriter
 from src.config.constants import INGEST_MAX_WORKERS, INGEST_GLOBAL_READING_ORDER_STRIDE
 from src.ingestion.page_elements import PageElement, PageElements
 from src.utils import timer
@@ -125,4 +125,7 @@ def ingest(pdf_path: Path) -> None:
 
     sections: list[list[tuple[int, PageElement]]] = Sections(page_elements=all_page_elements).detect_sections()
     filtered_sections: list[list[tuple[int, PageElement]]] = SectionUtils.filter_sections(sections)
-    SectionUtils.display_sections(filtered_sections)
+    precleaned_sections: list[list[tuple[int, PageElement]]] = SectionUtils.preclean_sections(filtered_sections)
+    noise_removed_sections: list[list[tuple[int, PageElement]]] = SectionUtils.reflow_sections(precleaned_sections)
+    written_section_files = SectionWriter.write_sections_to_files(noise_removed_sections)
+    print(f"Wrote {len(written_section_files)} section files to pipeline/sections")
