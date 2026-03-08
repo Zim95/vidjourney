@@ -8,9 +8,9 @@ from pathlib import Path
 import fitz
 
 # local
-from src.ingestion.section_detection import Section
+from src.ingestion.section_detection import SectionUtils, Sections
 from src.config.constants import INGEST_MAX_WORKERS, INGEST_GLOBAL_READING_ORDER_STRIDE
-from src.ingestion.page_elements import PageElements
+from src.ingestion.page_elements import PageElement, PageElements
 from src.utils import timer
 
 
@@ -123,4 +123,6 @@ def ingest(pdf_path: Path) -> None:
         all_page_elements.sort(key=lambda page_data: page_data[0])
         total_pages = all_page_elements[-1][0] if all_page_elements else 0 # read the last page number from the sorted list to get the total pages with elements.
 
-    Section.detect_sections(all_page_elements)
+    sections: list[list[tuple[int, PageElement]]] = Sections(page_elements=all_page_elements).detect_sections()
+    filtered_sections: list[list[tuple[int, PageElement]]] = SectionUtils.filter_sections(sections)
+    SectionUtils.display_sections(filtered_sections)
