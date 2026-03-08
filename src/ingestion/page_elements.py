@@ -29,12 +29,12 @@ That way we have a complete reading order of the entire pdf.
 
 from __future__ import annotations
 
+import re
 from dataclasses import asdict, dataclass, field, replace
 from statistics import median
 from typing import Any, Callable, ClassVar
 
 import fitz
-
 
 BBox = tuple[float, float, float, float]
 
@@ -180,6 +180,19 @@ class PageNumberElement(PageElement):
     text: str
 
 
+class CodeDetection:
+    @staticmethod
+    def _is_monospace(font_names: list[str]) -> bool:
+        lowered = [font_name.lower() for font_name in font_names]
+        tokens = ("courier", "mono", "consolas", "menlo")
+        return any(any(token in font_name for token in tokens) for font_name in lowered)
+
+    @classmethod
+    def is_code(cls, font_names: list[str], text: str) -> bool:
+        _ = text
+        return cls._is_monospace(font_names)
+
+
 @dataclass
 class PageElements:
     image_index: ClassVar[int] = 0
@@ -276,12 +289,6 @@ class PageElements:
         stripped = text.strip()
         return stripped.isdigit() and len(stripped) <= 4
 
-    @staticmethod
-    def _is_monospace(font_names: list[str]) -> bool:
-        lowered = [font_name.lower() for font_name in font_names]
-        tokens = ("courier", "mono", "consolas", "menlo")
-        return any(any(token in font_name for token in tokens) for font_name in lowered)
-
     @classmethod
     def reset_indices(cls) -> None:
         cls.image_index = 0
@@ -374,7 +381,7 @@ class PageElements:
         classification_conditions: dict[str, Callable[[], bool]] = {
             "caption": lambda: cls._is_caption(text),
             "list_item": lambda: cls._is_list_item(text),
-            "code_block": lambda: cls._is_monospace(font_names),
+            "code_block": lambda: CodeDetection.is_code(font_names, text),
             "heading": lambda: max_font_size >= (body_font_size * 1.25),
         }
         classification_actions: dict[str, Callable[[], None]] = {
