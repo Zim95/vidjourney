@@ -8,6 +8,7 @@ The input for this module is:
 '''
 
 import re
+import fitz
 from pathlib import Path
 from collections import defaultdict
 from ast import literal_eval
@@ -468,6 +469,52 @@ class SectionWriter:
         lines.append(f"{line_prefix} {resource_path.as_posix()}")
 
     @staticmethod
+    def _write_binary_resource_and_append(
+        *,
+        lines: list[str],
+        directories: dict[str, Path],
+        resource_counters: defaultdict[tuple[int, str], int],
+        section_number: int,
+        page_number: int,
+        resource_name: str,
+        extension: str,
+        content: bytes,
+        line_prefix: str,
+    ) -> None:
+        resource_counters[(page_number, resource_name)] += 1
+        idx = resource_counters[(page_number, resource_name)]
+        resource_path = SectionWriter._resource_path_for(
+            directories=directories,
+            section_number=section_number,
+            page_number=page_number,
+            resource_name=resource_name,
+            extension=extension,
+            index=idx,
+        )
+        resource_path.write_bytes(content)
+        lines.append(f"{line_prefix} {resource_path.as_posix()}")
+
+    @staticmethod
+    def _resolve_image_binary(
+        element: ImageElement,
+        document: fitz.Document | None,
+    ) -> tuple[bytes | None, str]:
+        if element.image_bytes:
+            return bytes(element.image_bytes), (element.image_ext or "png")
+
+        if document is not None and element.image_xref is not None:
+            try:
+                extracted = document.extract_image(element.image_xref)
+                image_bytes = extracted.get("image")
+                image_ext = str(extracted.get("ext", element.image_ext or "png")).lower()
+                if isinstance(image_bytes, (bytes, bytearray)):
+                    return bytes(image_bytes), image_ext
+            except Exception:
+                return None, (element.image_ext or "png")
+
+        return None, (element.image_ext or "png")
+
+    @staticmethod
     def _write_element_with_handlers(
         *,
         element: PageElement,
@@ -476,6 +523,7 @@ class SectionWriter:
         lines: list[str],
         directories: dict[str, Path],
         resource_counters: defaultdict[tuple[int, str], int],
+        document: fitz.Document | None,
     ) -> None:
         line_handlers = {
             HeadingElement: lambda elem: lines.append(f"HEADING {elem.text}"),
@@ -498,21 +546,34 @@ class SectionWriter:
                 content=elem.text,
                 line_prefix="CODE_BLOCK",
             ),
-            ImageElement: lambda elem: SectionWriter._write_resource_and_append(
-                lines=lines,
-                directories=directories,
-                resource_counters=resource_counters,
-                section_number=section_number,
-                page_number=page_number,
-                resource_name="images",
-                extension="txt",
-                content=(
-                    f"image_index={elem.image_index}\n"
-                    f"bbox={elem.geometry.bbox}\n"
-                    f"norm_bbox={elem.geometry.norm_bbox}\n"
-                ),
-                line_prefix="IMAGE",
-            ),
+            ImageElement: lambda elem: (
+                lambda image_data, image_ext: SectionWriter._write_binary_resource_and_append(
+                    lines=lines,
+                    directories=directories,
+                    resource_counters=resource_counters,
+                    section_number=section_number,
+                    page_number=page_number,
+                    resource_name="images",
+                    extension=image_ext,
+                    content=image_data,
+                    line_prefix="IMAGE",
+                ) if image_data is not None else SectionWriter._write_resource_and_append(
+                    lines=lines,
+                    directories=directories,
+                    resource_counters=resource_counters,
+                    section_number=section_number,
+                    page_number=page_number,
+                    resource_name="images",
+                    extension="txt",
+                    content=(
+                        f"image_index={elem.image_index}\n"
+                        f"xref={elem.image_xref}\n"
+                        f"bbox={elem.geometry.bbox}\n"
+                        f"norm_bbox={elem.geometry.norm_bbox}\n"
+                    ),
+                    line_prefix="IMAGE",
+                )
+            )(*SectionWriter._resolve_image_binary(elem, document)),
             TableElement: lambda elem: SectionWriter._write_resource_and_append(
                 lines=lines,
                 directories=directories,
@@ -555,6 +616,7 @@ class SectionWriter:
     def write_sections_to_files(
         sections: list[list[tuple[int, PageElement]]],
         output_dir: Path | str = Path("pipeline") / "sections",
+        pdf_path: Path | str | None = None,
     ) -> list[Path]:
         '''
         Persist each section to an individual file and write section resources under:
@@ -567,31 +629,43 @@ class SectionWriter:
         directories = SectionWriter._ensure_output_dirs(base_dir)
         written_section_files: list[Path] = []
 
-        for section_number, section_items in enumerate(sections, start=1):
-            section_file = directories["sections"] / f"section_{section_number}.txt"
-            resource_counters: defaultdict[tuple[int, str], int] = defaultdict(int)
+        document: fitz.Document | None = None
+        if pdf_path is not None:
+            try:
+                document = fitz.open(Path(pdf_path))
+            except Exception:
+                document = None
 
-            lines: list[str] = [f"section_number: {section_number}", ""]
-            current_page_number: int | None = None
+        try:
+            for section_number, section_items in enumerate(sections, start=1):
+                section_file = directories["sections"] / f"section_{section_number}.txt"
+                resource_counters: defaultdict[tuple[int, str], int] = defaultdict(int)
 
-            for page_number, element in section_items:
-                if page_number != current_page_number:
-                    if current_page_number is not None:
+                lines: list[str] = [f"section_number: {section_number}", ""]
+                current_page_number: int | None = None
+
+                for page_number, element in section_items:
+                    if page_number != current_page_number:
+                        if current_page_number is not None:
+                            lines.append("")
+                        lines.append(f"page_number: {page_number}")
                         lines.append("")
-                    lines.append(f"page_number: {page_number}")
-                    lines.append("")
-                    current_page_number = page_number
+                        current_page_number = page_number
 
-                SectionWriter._write_element_with_handlers(
-                    element=element,
-                    page_number=page_number,
-                    section_number=section_number,
-                    lines=lines,
-                    directories=directories,
-                    resource_counters=resource_counters,
-                )
+                    SectionWriter._write_element_with_handlers(
+                        element=element,
+                        page_number=page_number,
+                        section_number=section_number,
+                        lines=lines,
+                        directories=directories,
+                        resource_counters=resource_counters,
+                        document=document,
+                    )
 
-            section_file.write_text("\n".join(lines).strip() + "\n", encoding="utf-8")
-            written_section_files.append(section_file)
+                section_file.write_text("\n".join(lines).strip() + "\n", encoding="utf-8")
+                written_section_files.append(section_file)
+        finally:
+            if document is not None:
+                document.close()
 
         return written_section_files

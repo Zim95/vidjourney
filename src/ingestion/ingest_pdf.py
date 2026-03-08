@@ -127,5 +127,5 @@ def ingest(pdf_path: Path) -> None:
     filtered_sections: list[list[tuple[int, PageElement]]] = SectionUtils.filter_sections(sections)
     precleaned_sections: list[list[tuple[int, PageElement]]] = SectionUtils.preclean_sections(filtered_sections)
     noise_removed_sections: list[list[tuple[int, PageElement]]] = SectionUtils.reflow_sections(precleaned_sections)
-    written_section_files = SectionWriter.write_sections_to_files(noise_removed_sections)
+    written_section_files = SectionWriter.write_sections_to_files(noise_removed_sections, pdf_path=pdf_path)
     print(f"Wrote {len(written_section_files)} section files to pipeline/sections")

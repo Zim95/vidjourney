@@ -141,6 +141,9 @@ class CodeBlockElement(PageElement):
 @dataclass(frozen=True)
 class ImageElement(PageElement):
     image_index: int
+    image_xref: int | None = None
+    image_ext: str | None = None
+    image_bytes: bytes | None = None
 
 
 @dataclass(frozen=True)
@@ -298,6 +301,7 @@ class PageElements:
     @classmethod
     def _append_image_block(
         cls,
+        block: dict[str, Any],
         detected: PageElements,
         page_number: int,
         page_width: float,
@@ -310,6 +314,9 @@ class PageElements:
                 reading_order_index=cls._next_render_order_index(),
                 geometry=Geometry.from_bbox(bbox=bbox, page_width=page_width, page_height=page_height),
                 image_index=cls._next_image_index(),
+                image_xref=int(block.get("xref")) if str(block.get("xref", "")).isdigit() else None,
+                image_ext=str(block.get("ext", "")).strip().lower() or None,
+                image_bytes=block.get("image") if isinstance(block.get("image"), (bytes, bytearray)) else None,
             )
         )
 
@@ -442,6 +449,7 @@ class PageElements:
             }
             routing_actions: dict[str, Callable[[], None]] = {
                 "image": lambda: cls._append_image_block(
+                    block=block,
                     detected=detected,
                     page_number=page_number,
                     page_width=page_width,
