@@ -181,16 +181,54 @@ class PageNumberElement(PageElement):
 
 
 class CodeDetection:
+    MONO_TOKENS = ("courier", "mono", "consolas", "menlo")
+
     @staticmethod
     def _is_monospace(font_names: list[str]) -> bool:
         lowered = [font_name.lower() for font_name in font_names]
-        tokens = ("courier", "mono", "consolas", "menlo")
-        return any(any(token in font_name for token in tokens) for font_name in lowered)
+        return any(token in font_name for font_name in lowered for token in CodeDetection.MONO_TOKENS)
+
+    @staticmethod
+    def _indent_ratio(lines: list[str]) -> float:
+        if not lines:
+            return 0.0
+        indented = sum(1 for line in lines if line.startswith(("  ", "\t")))
+        return indented / len(lines)
+
+    @staticmethod
+    def _short_line_ratio(lines: list[str], limit: int = 60) -> float:
+        if not lines:
+            return 0.0
+        short = sum(1 for line in lines if len(line.strip()) <= limit)
+        return short / len(lines)
+
+    @staticmethod
+    def _symbol_density(text: str) -> float:
+        symbols = r"[{}\[\]();=<>+\-*/%:,.]"
+        symbol_count = len(re.findall(symbols, text))
+        return symbol_count / max(len(text), 1)
 
     @classmethod
     def is_code(cls, font_names: list[str], text: str) -> bool:
-        _ = text
-        return cls._is_monospace(font_names)
+        lines = [line for line in text.splitlines() if line.strip()]
+        score = 0
+
+        if cls._is_monospace(font_names):
+            score += 3
+
+        if cls._indent_ratio(lines) > 0.3:
+            score += 2
+
+        if cls._short_line_ratio(lines) > 0.6:
+            score += 2
+
+        if cls._symbol_density(text) > 0.05:
+            score += 2
+
+        if len(lines) >= 3:
+            score += 1
+
+        return score >= 5
 
 
 @dataclass
