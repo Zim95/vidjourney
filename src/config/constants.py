@@ -48,5 +48,13 @@ MANIM_QUALITY = _cfg_text("manim", "quality", "ql")
 MANIM_PREVIEW = _cfg_text("manim", "preview", "true")
 RENDER_TO_MANIM_MAX_WORKERS = _cfg_int("manim", "max_workers", 4)
 
+
 INGEST_MAX_WORKERS = os.cpu_count() or _cfg_int("ingestion", "max_workers", 1)
 INGEST_GLOBAL_READING_ORDER_STRIDE = 100_000
+
+# Ingestion table detection thresholds
+INGESTION_TABLE_Y_TOLERANCE = float(_cfg_text("ingestion", "table_y_tolerance", "3.0"))
+INGESTION_TABLE_X_CLUSTER_TOLERANCE = float(_cfg_text("ingestion", "table_x_cluster_tolerance", "8.0"))
+INGESTION_TABLE_ROW_SPACING_VARIANCE = float(_cfg_text("ingestion", "table_row_spacing_variance", "2.5"))
+INGESTION_TABLE_WIDTH_RATIO = float(_cfg_text("ingestion", "table_width_ratio", "0.75"))
+INGESTION_TABLE_SCORE_THRESHOLD = float(_cfg_text("ingestion", "table_score_threshold", "3.0"))

@@ -12,8 +12,8 @@ import json
 import fitz
 from pathlib import Path
 from collections import defaultdict
-from ast import literal_eval
 from dataclasses import dataclass, field, replace
+from statistics import mean, pstdev
 
 from pygments.lexers import guess_lexer
 from pygments.util import ClassNotFound
@@ -153,6 +153,26 @@ class SectionUtils:
         fixed = re.sub(r"(\w)-\s*\n\s*(\w)", r"\1\2", text)
         fixed = re.sub(r"(\w)-\s{2,}(\w)", r"\1\2", fixed)
         return fixed
+
+    @staticmethod
+    def _is_page_artifact_paragraph(text: str) -> bool:
+        compact = re.sub(r"\s+", " ", (text or "")).strip()
+        if not compact:
+            return True
+
+        if len(compact) > 100:
+            return False
+
+        if re.search(r"\|\s*\d{1,4}\s*$", compact):
+            return True
+
+        if re.match(r"^\d{1,4}\s*\|\s*[A-Za-z]", compact):
+            return True
+
+        if re.match(r"^chapter\s+\d+\b", compact, flags=re.IGNORECASE):
+            return True
+
+        return False
 
     @staticmethod
     def _is_likely_multi_column_page(page_items: list[tuple[int, PageElement]]) -> bool:
@@ -365,6 +385,10 @@ class SectionUtils:
             for page_number, element in section:
                 # skip links for section/video output
                 if isinstance(element, LinkElement):
+                    continue
+
+                # remove running headers/footers that were misclassified as paragraph text
+                if isinstance(element, ParagraphElement) and SectionUtils._is_page_artifact_paragraph(element.text):
                     continue
 
                 # ignore header and footer element
@@ -944,6 +968,182 @@ class CodeBlockFormatUtils:
         return CodeBlockFormatUtils._format_brace_based(text), extension
 
 
+class TableDetectionUtils:
+    from src.config.constants import (
+        INGESTION_TABLE_Y_TOLERANCE,
+        INGESTION_TABLE_X_CLUSTER_TOLERANCE,
+        INGESTION_TABLE_ROW_SPACING_VARIANCE,
+        INGESTION_TABLE_WIDTH_RATIO,
+        INGESTION_TABLE_SCORE_THRESHOLD,
+    )
+    Y_TOLERANCE = INGESTION_TABLE_Y_TOLERANCE
+    X_CLUSTER_TOLERANCE = INGESTION_TABLE_X_CLUSTER_TOLERANCE
+
+    @staticmethod
+    def _words_in_bbox(page: fitz.Page, bbox: tuple[float, float, float, float]) -> list[tuple]:
+        x0, y0, x1, y1 = bbox
+        return [
+            word
+            for word in page.get_text("words")
+            if float(word[0]) >= x0 and float(word[1]) >= y0 and float(word[2]) <= x1 and float(word[3]) <= y1
+        ]
+
+    @staticmethod
+    def _group_lines(words: list[tuple]) -> list[list[tuple]]:
+        if not words:
+            return []
+
+        sorted_words = sorted(words, key=lambda word: (float(word[1]), float(word[0])))
+        lines: list[list[tuple]] = []
+
+        for word in sorted_words:
+            y_center = (float(word[1]) + float(word[3])) / 2.0
+            matching_line = next(
+                (
+                    line
+                    for line in lines
+                    if abs(y_center - mean(((float(item[1]) + float(item[3])) / 2.0) for item in line)) <= TableDetectionUtils.Y_TOLERANCE
+                ),
+                None,
+            )
+
+            if matching_line is None:
+                lines.append([word])
+            else:
+                matching_line.append(word)
+
+        return [sorted(line, key=lambda item: float(item[0])) for line in lines]
+
+    @staticmethod
+    def _cluster_count(values: list[float], tolerance: float) -> int:
+        if not values:
+            return 0
+        clusters: list[list[float]] = []
+        for value in sorted(values):
+            target_cluster = next(
+                (cluster for cluster in clusters if abs(value - mean(cluster)) <= tolerance),
+                None,
+            )
+            (target_cluster.append(value) if target_cluster is not None else clusters.append([value]))
+        return len(clusters)
+
+    @staticmethod
+    def _safe_ratio(numerator: float, denominator: float) -> float:
+        return numerator / denominator if denominator > 0 else 0.0
+
+    @staticmethod
+    def _metrics(page: fitz.Page, bbox: tuple[float, float, float, float]) -> dict[str, float]:
+        words = TableDetectionUtils._words_in_bbox(page, bbox)
+        lines = TableDetectionUtils._group_lines(words)
+        line_count = len(lines)
+
+        page_width = float(page.rect.width)
+        bbox_width = max(1.0, float(bbox[2]) - float(bbox[0]))
+        bbox_height = max(1.0, float(bbox[3]) - float(bbox[1]))
+
+        line_widths = [
+            max(0.0, max(float(word[2]) for word in line) - min(float(word[0]) for word in line))
+            for line in lines if line
+        ]
+        avg_line_width = mean(line_widths) if line_widths else 0.0
+        width_ratio = TableDetectionUtils._safe_ratio(avg_line_width, max(1.0, page_width))
+
+        all_word_count = sum(len(line) for line in lines)
+        word_count_by_line = [len(line) for line in lines if line]
+        word_count_variance = pstdev(word_count_by_line) if len(word_count_by_line) >= 2 else 0.0
+
+        x_starts = [float(line[0][0]) for line in lines if line]
+        x_ends = [float(line[-1][2]) for line in lines if line]
+        same_left_alignment = TableDetectionUtils._cluster_count(x_starts, TableDetectionUtils.X_CLUSTER_TOLERANCE) <= 1
+        right_edge_clusters = TableDetectionUtils._cluster_count(x_ends, TableDetectionUtils.X_CLUSTER_TOLERANCE)
+
+        internal_x_positions = [
+            float(word[0])
+            for line in lines
+            for index, word in enumerate(line)
+            if index > 0
+        ]
+        aligned_columns = TableDetectionUtils._cluster_count(internal_x_positions, TableDetectionUtils.X_CLUSTER_TOLERANCE)
+
+        line_y_centers = [
+            mean(((float(word[1]) + float(word[3])) / 2.0) for word in line)
+            for line in lines if line
+        ]
+        row_gaps = [
+            line_y_centers[index + 1] - line_y_centers[index]
+            for index in range(len(line_y_centers) - 1)
+        ]
+        row_spacing_variance = pstdev(row_gaps) if len(row_gaps) >= 2 else 0.0
+
+        text_blob = " ".join(str(word[4]) for word in words)
+        stopword_hits = len(re.findall(r"\b(the|and|or|to|of|in|is|that|for|with|on|as|by|from)\b", text_blob.lower()))
+        stopword_ratio = TableDetectionUtils._safe_ratio(stopword_hits, max(1, len(re.findall(r"\b\w+\b", text_blob))))
+
+        sentence_punctuation_hits = len(re.findall(r"[\.;:!?]", text_blob))
+        sentence_punctuation_ratio = TableDetectionUtils._safe_ratio(sentence_punctuation_hits, max(1, len(text_blob)))
+
+        number_hits = len(re.findall(r"\d", text_blob))
+        alnum_hits = len(re.findall(r"[A-Za-z0-9]", text_blob))
+        numeric_ratio = TableDetectionUtils._safe_ratio(number_hits, max(1, alnum_hits))
+
+        drawing_items = page.get_drawings()
+        has_grid_lines = any(
+            fitz.Rect(item.get("rect", fitz.Rect(0, 0, 0, 0))).intersects(fitz.Rect(*bbox))
+            for item in drawing_items
+        )
+
+        return {
+            "line_count": float(line_count),
+            "aligned_columns": float(aligned_columns),
+            "width_ratio": width_ratio,
+            "stopword_ratio": stopword_ratio,
+            "sentence_punctuation_ratio": sentence_punctuation_ratio,
+            "word_count_variance": word_count_variance,
+            "same_left_alignment": 1.0 if same_left_alignment else 0.0,
+            "right_edge_clusters": float(right_edge_clusters),
+            "row_spacing_variance": row_spacing_variance,
+            "numeric_ratio": numeric_ratio,
+            "has_grid_lines": 1.0 if has_grid_lines else 0.0,
+            "word_count": float(all_word_count),
+            "bbox_density": TableDetectionUtils._safe_ratio(float(all_word_count), bbox_width * bbox_height),
+        }
+
+    @staticmethod
+    def evaluate(page: fitz.Page, bbox: tuple[float, float, float, float]) -> tuple[bool, float, list[str]]:
+        metrics = TableDetectionUtils._metrics(page, bbox)
+
+        reject_rules: dict[str, callable] = {
+            "insufficient_columns": lambda m: m["aligned_columns"] <= 1,
+            "insufficient_rows": lambda m: m["line_count"] < 3,
+            "flowing_paragraph": lambda m: m["width_ratio"] > TableDetectionUtils.INGESTION_TABLE_WIDTH_RATIO and m["aligned_columns"] <= 1,
+        }
+
+        reject_reasons = [name for name, rule in reject_rules.items() if rule(metrics)]
+        if reject_reasons:
+            return False, -1.0, reject_reasons
+
+        positive_rules: dict[str, tuple[float, callable]] = {
+            "aligned_columns": (3.0, lambda m: m["aligned_columns"] >= 2),
+            "consistent_rows": (2.0, lambda m: m["line_count"] >= 3 and m["row_spacing_variance"] <= TableDetectionUtils.INGESTION_TABLE_ROW_SPACING_VARIANCE),
+            "right_edge_alignment": (1.0, lambda m: m["right_edge_clusters"] >= 2),
+            "numeric_heavy": (1.0, lambda m: m["numeric_ratio"] >= 0.08),
+            "grid_lines": (4.0, lambda m: m["has_grid_lines"] > 0),
+        }
+
+        penalty_rules: dict[str, tuple[float, callable]] = {
+            "single_left_alignment": (-3.0, lambda m: m["same_left_alignment"] > 0),
+            "wide_lines": (-2.0, lambda m: m["width_ratio"] > TableDetectionUtils.INGESTION_TABLE_WIDTH_RATIO),
+            "sentence_punctuation_heavy": (-2.0, lambda m: m["sentence_punctuation_ratio"] > 0.03),
+            "high_stopword_ratio": (-2.0, lambda m: m["stopword_ratio"] > 0.35),
+            "high_word_count_variance": (-1.0, lambda m: m["word_count_variance"] > 6.0),
+        }
+
+        score = sum(weight for _name, (weight, rule) in positive_rules.items() if rule(metrics))
+        score += sum(weight for _name, (weight, rule) in penalty_rules.items() if rule(metrics))
+
+        return score >= TableDetectionUtils.INGESTION_TABLE_SCORE_THRESHOLD, score, []
+
+
 class SectionWriter:
 
     @staticmethod
@@ -1072,6 +1272,224 @@ class SectionWriter:
         return None, (element.image_ext or "png")
 
     @staticmethod
+    def _resolve_table_image_binary(
+        element: TableElement,
+        page_number: int,
+        document: fitz.Document | None,
+    ) -> tuple[bytes | None, str]:
+        if document is None:
+            return None, "png"
+
+        try:
+            page = document.load_page(page_number - 1)
+            bbox = element.geometry.bbox
+            base_clip = fitz.Rect(
+                float(bbox.get("x0", 0.0)),
+                float(bbox.get("y0", 0.0)),
+                float(bbox.get("x1", 0.0)),
+                float(bbox.get("y1", 0.0)),
+            )
+
+            clip = SectionWriter._resolve_table_clip_from_candidates(page=page, base_clip=base_clip)
+
+            if clip.width <= 0 or clip.height <= 0:
+                return None, "png"
+
+            pixmap = page.get_pixmap(clip=clip, matrix=fitz.Matrix(2, 2), alpha=False)
+            return pixmap.tobytes("png"), "png"
+        except Exception:
+            return None, "png"
+
+    @staticmethod
+    def _rect_horizontal_overlap_ratio(first: fitz.Rect, second: fitz.Rect) -> float:
+        overlap = max(0.0, min(first.x1, second.x1) - max(first.x0, second.x0))
+        base = max(1.0, min(first.width, second.width))
+        return overlap / base
+
+    @staticmethod
+    def _resolve_table_clip_from_candidates(page: fitz.Page, base_clip: fitz.Rect) -> fitz.Rect:
+        candidates: list[fitz.Rect] = [base_clip]
+
+        strategy_kwargs = (
+            {},
+            {"vertical_strategy": "text", "horizontal_strategy": "lines"},
+            {"vertical_strategy": "lines", "horizontal_strategy": "text"},
+        )
+
+        for kwargs in strategy_kwargs:
+            try:
+                found = page.find_tables(**kwargs)
+            except Exception:
+                continue
+
+            for table in (getattr(found, "tables", None) or []):
+                table_bbox = getattr(table, "bbox", None)
+                if table_bbox is None:
+                    continue
+
+                rect = fitz.Rect(
+                    float(table_bbox[0]),
+                    float(table_bbox[1]),
+                    float(table_bbox[2]),
+                    float(table_bbox[3]),
+                )
+                candidates.append(rect)
+
+        compatible_candidates = [
+            rect
+            for rect in candidates
+            if SectionWriter._rect_horizontal_overlap_ratio(rect, base_clip) >= 0.85
+            and abs(rect.y0 - base_clip.y0) <= 40
+            and rect.y1 >= base_clip.y1
+        ]
+
+        scored_candidates: list[tuple[float, float, fitz.Rect]] = []
+        for rect in compatible_candidates:
+            is_table_like, score, _reasons = TableDetectionUtils.evaluate(
+                page=page,
+                bbox=(rect.x0, rect.y0, rect.x1, rect.y1),
+            )
+            metrics = TableDetectionUtils._metrics(
+                page=page,
+                bbox=(rect.x0, rect.y0, rect.x1, rect.y1),
+            )
+
+            prose_heavy = (
+                metrics["stopword_ratio"] > 0.32
+                and metrics["sentence_punctuation_ratio"] > 0.018
+                and metrics["word_count"] > 40
+            )
+            if prose_heavy:
+                continue
+
+            adjusted_score = score + (1.0 if is_table_like else 0.0)
+            height = rect.y1 - rect.y0
+            scored_candidates.append((adjusted_score, -height, rect))
+
+        best = max(scored_candidates, key=lambda item: (item[0], item[1]), default=(0.0, 0.0, base_clip))[2]
+
+        trimmed_best = SectionWriter._trim_table_clip_to_table_rows(page=page, clip=best, min_y1=base_clip.y1)
+
+        page_rect = page.rect
+        return fitz.Rect(
+            max(page_rect.x0, trimmed_best.x0),
+            max(page_rect.y0, trimmed_best.y0),
+            min(page_rect.x1, trimmed_best.x1),
+            min(page_rect.y1, trimmed_best.y1),
+        )
+
+    @staticmethod
+    def _trim_table_clip_to_table_rows(page: fitz.Page, clip: fitz.Rect, min_y1: float) -> fitz.Rect:
+        words = TableDetectionUtils._words_in_bbox(page, (clip.x0, clip.y0, clip.x1, clip.y1))
+        lines = TableDetectionUtils._group_lines(words)
+        if not lines:
+            return clip
+
+        def line_text(line: list[tuple]) -> str:
+            return " ".join(str(word[4]) for word in line).strip()
+
+        def numeric_ratio(text: str) -> float:
+            digits = len(re.findall(r"\d", text))
+            alnum = len(re.findall(r"[A-Za-z0-9]", text))
+            return digits / max(1, alnum)
+
+        def table_like(line: list[tuple]) -> bool:
+            x_starts = [float(word[0]) for word in line]
+            internal_cols = TableDetectionUtils._cluster_count(x_starts[1:], TableDetectionUtils.X_CLUSTER_TOLERANCE)
+            gaps = sum(
+                1
+                for index in range(len(line) - 1)
+                if float(line[index + 1][0]) - float(line[index][2]) >= 12.0
+            )
+            text = line_text(line)
+            wc = len(text.split())
+            ratio = numeric_ratio(text)
+            sentence_like = wc >= 10 and text.endswith((".", ";", ":"))
+
+            rule_checks = {
+                "cols_and_gaps": lambda: internal_cols >= 1 and gaps >= 1 and wc >= 2,
+                "short_cells": lambda: wc <= 6 and gaps >= 1,
+                "numeric_table": lambda: ratio >= 0.08 and wc >= 2,
+            }
+            return any(check() for check in rule_checks.values()) and not sentence_like
+
+        started = False
+        non_table_streak = 0
+        last_table_y1: float | None = None
+
+        for line in lines:
+            if not line:
+                continue
+
+            is_table_line = table_like(line)
+            line_y1 = max(float(word[3]) for word in line)
+
+            if is_table_line:
+                started = True
+                non_table_streak = 0
+                last_table_y1 = line_y1
+                continue
+
+            if started:
+                non_table_streak += 1
+                if non_table_streak >= 2:
+                    break
+
+        if last_table_y1 is None:
+            return clip
+
+        padded_y1 = max(min_y1, last_table_y1 + 4.0)
+        return fitz.Rect(clip.x0, clip.y0, clip.x1, min(clip.y1, padded_y1))
+
+    @staticmethod
+    def _write_table_and_append(
+        *,
+        element: TableElement,
+        page_number: int,
+        section_number: int,
+        lines: list[str],
+        directories: dict[str, Path],
+        resource_counters: defaultdict[tuple[int, str], int],
+        document: fitz.Document | None,
+    ) -> None:
+        image_data, image_ext = SectionWriter._resolve_table_image_binary(
+            element=element,
+            page_number=page_number,
+            document=document,
+        )
+
+        if image_data is not None:
+            SectionWriter._write_binary_resource_and_append(
+                lines=lines,
+                directories=directories,
+                resource_counters=resource_counters,
+                section_number=section_number,
+                page_number=page_number,
+                resource_name="tables",
+                extension=image_ext,
+                content=image_data,
+                line_prefix="TABLE",
+            )
+            return
+
+        SectionWriter._write_resource_and_append(
+            lines=lines,
+            directories=directories,
+            resource_counters=resource_counters,
+            section_number=section_number,
+            page_number=page_number,
+            resource_name="tables",
+            extension="txt",
+            content=(
+                f"row_count={element.row_count}\n"
+                f"column_count={element.column_count}\n"
+                f"bbox={element.geometry.bbox}\n"
+                f"norm_bbox={element.geometry.norm_bbox}\n"
+            ),
+            line_prefix="TABLE",
+        )
+
+    @staticmethod
     def _write_element_with_handlers(
         *,
         element: PageElement,
@@ -1128,21 +1546,14 @@ class SectionWriter:
                     line_prefix="IMAGE",
                 )
             )(*SectionWriter._resolve_image_binary(elem, document)),
-            TableElement: lambda elem: SectionWriter._write_resource_and_append(
+            TableElement: lambda elem: SectionWriter._write_table_and_append(
+                element=elem,
+                page_number=page_number,
+                section_number=section_number,
                 lines=lines,
                 directories=directories,
                 resource_counters=resource_counters,
-                section_number=section_number,
-                page_number=page_number,
-                resource_name="tables",
-                extension="txt",
-                content=(
-                    f"row_count={elem.row_count}\n"
-                    f"column_count={elem.column_count}\n"
-                    f"bbox={elem.geometry.bbox}\n"
-                    f"norm_bbox={elem.geometry.norm_bbox}\n"
-                ),
-                line_prefix="TABLE",
+                document=document,
             ),
             DrawingElement: lambda elem: SectionWriter._write_resource_and_append(
                 lines=lines,
