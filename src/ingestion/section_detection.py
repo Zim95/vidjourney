@@ -446,6 +446,16 @@ class SectionUtils:
 
 
 class CodeCleanupUtils:
+    from src.config.constants import (
+        INGESTION_CODE_SQL_KEYWORD_HITS,
+        INGESTION_CODE_SYMBOL_DENSITY_MIN,
+        INGESTION_CODE_SYMBOL_DENSITY_STRONG,
+        INGESTION_CODE_MIN_LINE_COUNT,
+        INGESTION_CODE_DEMOTE_SYMBOL_DENSITY,
+        INGESTION_CODE_DEMOTE_SQL_HITS,
+        INGESTION_CODE_PROSE_MIN_LINE_LENGTH,
+        INGESTION_CODE_PROSE_CONNECTOR_KEYWORDS,
+    )
     SQL_KEYWORDS = {
         "select", "from", "where", "group", "by", "order", "having", "join", "left", "right",
         "inner", "outer", "on", "insert", "update", "delete", "create", "table", "with", "recursive",
@@ -487,8 +497,11 @@ class CodeCleanupUtils:
         if not lines:
             return False
 
-        sentence_like_lines = sum(1 for line in lines if len(line.split()) >= 8 and line.endswith((".", ":")))
-        prose_connectors = len(re.findall(r"\b(which|because|therefore|works|calculate|efficiently|load|find)\b", text.lower()))
+        sentence_like_lines = sum(
+            1 for line in lines if len(line.split()) >= CodeCleanupUtils.INGESTION_CODE_PROSE_MIN_LINE_LENGTH and line.endswith((".", ":"))
+        )
+        connector_pattern = r"\\b(" + "|".join(CodeCleanupUtils.INGESTION_CODE_PROSE_CONNECTOR_KEYWORDS) + r")\\b"
+        prose_connectors = len(re.findall(connector_pattern, text.lower()))
 
         first_line_explainer = lines[0].endswith(":") and ";" not in lines[0]
         return (sentence_like_lines >= max(1, len(lines) // 2) and prose_connectors >= 1) or first_line_explainer
@@ -558,10 +571,10 @@ class CodeCleanupUtils:
         symbol_density = CodeCleanupUtils._code_symbol_density(text)
         line_count = CodeCleanupUtils._line_count(text)
 
-        if sql_hits >= 4 and symbol_density >= 0.015:
+        if sql_hits >= CodeCleanupUtils.INGESTION_CODE_SQL_KEYWORD_HITS and symbol_density >= CodeCleanupUtils.INGESTION_CODE_SYMBOL_DENSITY_MIN:
             return True
 
-        if line_count >= 3 and symbol_density >= 0.03 and CodeCleanupUtils._ends_with_statement_terminator(text):
+        if line_count >= CodeCleanupUtils.INGESTION_CODE_MIN_LINE_COUNT and symbol_density >= CodeCleanupUtils.INGESTION_CODE_SYMBOL_DENSITY_STRONG and CodeCleanupUtils._ends_with_statement_terminator(text):
             return True
 
         return False
@@ -585,7 +598,7 @@ class CodeCleanupUtils:
         sql_hits = CodeCleanupUtils._sql_keyword_hits(normalized)
         looks_prose = CodeCleanupUtils._looks_like_explanatory_prose(normalized)
 
-        return looks_prose and symbol_density <= 0.02 and sql_hits <= 2
+        return looks_prose and symbol_density <= CodeCleanupUtils.INGESTION_CODE_DEMOTE_SYMBOL_DENSITY and sql_hits <= CodeCleanupUtils.INGESTION_CODE_DEMOTE_SQL_HITS
 
     @staticmethod
     def demote_prose_like_code_blocks(
