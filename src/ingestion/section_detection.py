@@ -1220,19 +1220,12 @@ class ParagraphMergeUtils:
         merged_sections: list[list[tuple[int, PageElement]]] = []
 
         # Helper lambdas/dicts to keep branching compact
-        ignorable_types = (LinkElement, AnnotationElement)
+        ignorable_types = (LinkElement, AnnotationElement, PageNumberElement)
 
         def _is_ignorable(elem: PageElement) -> bool:
-            """Return True for elements that should be skipped when joining
-            adjacent paragraphs. This includes artifact/tiny-separator paragraphs
-            and page number markers placed between paragraphs.
-            """
             if isinstance(elem, ParagraphElement):
                 text = (elem.text or "").strip()
                 return ParagraphUtils._is_artifact(text) or ParagraphMergeUtils._is_tiny_separator_paragraph(elem)
-            if isinstance(elem, PageNumberElement):
-                # Page numbers are ignorable separators between paragraph blocks
-                return True
             return isinstance(elem, ignorable_types)
 
         def _join_text(prev: str, nxt: str) -> str:
