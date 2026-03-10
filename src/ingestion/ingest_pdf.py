@@ -8,7 +8,7 @@ from pathlib import Path
 import fitz
 
 # local
-from src.ingestion.section_detection import CodeCleanupUtils, CodeMergeUtils, SectionUtils, Sections, SectionWriter
+from src.ingestion.section_detection import CodeCleanupUtils, CodeMergeUtils, ParagraphMergeUtils, SectionUtils, Sections, SectionWriter
 from src.config.constants import INGEST_MAX_WORKERS, INGEST_GLOBAL_READING_ORDER_STRIDE
 from src.ingestion.page_elements import PageElement, PageElements
 from src.utils import timer
@@ -128,6 +128,7 @@ def ingest(pdf_path: Path) -> None:
     precleaned_sections: list[list[tuple[int, PageElement]]] = SectionUtils.preclean_sections(filtered_sections)
     cleaned_code_sections: list[list[tuple[int, PageElement]]] = CodeCleanupUtils.demote_prose_like_code_blocks(precleaned_sections)
     merged_code_sections: list[list[tuple[int, PageElement]]] = CodeMergeUtils.combine_split_code_blocks(cleaned_code_sections)
-    noise_removed_sections: list[list[tuple[int, PageElement]]] = SectionUtils.reflow_sections(merged_code_sections)
+    merged_paragraph_sections: list[list[tuple[int, PageElement]]] = ParagraphMergeUtils.process(merged_code_sections)
+    noise_removed_sections: list[list[tuple[int, PageElement]]] = SectionUtils.reflow_sections(merged_paragraph_sections)
     written_section_files = SectionWriter.write_sections_to_files(noise_removed_sections, pdf_path=pdf_path)
     print(f"Wrote {len(written_section_files)} section files to pipeline/sections")
