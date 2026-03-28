@@ -1,0 +1,14 @@
+[
+    {
+        "text": "-- This may or may not be safe, depending on the database implementation\n",
+        "label": "code"
+    },
+    {
+        "text": "UPDATE wiki_pages SET content = 'new content'\n",
+        "label": "code"
+    },
+    {
+        "text": "WHERE id = 1234 AND content = 'old content';",
+        "label": "code"
+    }
+]

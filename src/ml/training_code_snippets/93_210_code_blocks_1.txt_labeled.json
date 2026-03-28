@@ -1,0 +1,86 @@
+[
+    {
+        "text": "3. Client 1, oblivious to client 2\u2019s write, wants to add flour to the cart, so it thinks\n",
+        "label": "text"
+    },
+    {
+        "text": "the current cart contents should be [milk, flour]. It sends this value to the\n",
+        "label": "text"
+    },
+    {
+        "text": "server, along with the version number 1 that the server gave client 1 previously.\n",
+        "label": "text"
+    },
+    {
+        "text": "The server can tell from the version number that the write of [milk, flour]\n",
+        "label": "text"
+    },
+    {
+        "text": "supersedes the prior value of [milk] but that it is concurrent with [eggs]. Thus,\n",
+        "label": "text"
+    },
+    {
+        "text": "the server assigns version 3 to [milk, flour], overwrites the version 1 value\n",
+        "label": "text"
+    },
+    {
+        "text": "[milk], but keeps the version 2 value [eggs] and returns both remaining values\n",
+        "label": "text"
+    },
+    {
+        "text": "to the client.\n",
+        "label": "text"
+    },
+    {
+        "text": "4. Meanwhile, client 2 wants to add ham to the cart, unaware that client 1 just added\n",
+        "label": "text"
+    },
+    {
+        "text": "flour. Client 2 received the two values [milk] and [eggs] from the server in the\n",
+        "label": "text"
+    },
+    {
+        "text": "last response, so the client now merges those values and adds ham to form a new\n",
+        "label": "text"
+    },
+    {
+        "text": "value, [eggs, milk, ham]. It sends that value to the server, along with the previ\u2010\n",
+        "label": "text"
+    },
+    {
+        "text": "ous version number 2. The server detects that version 2 overwrites [eggs] but is\n",
+        "label": "text"
+    },
+    {
+        "text": "concurrent with [milk, flour], so the two remaining values are [milk, flour]\n",
+        "label": "text"
+    },
+    {
+        "text": "with version 3, and [eggs, milk, ham] with version 4.\n",
+        "label": "text"
+    },
+    {
+        "text": "5. Finally, client 1 wants to add bacon. It previously received [milk, flour] and\n",
+        "label": "text"
+    },
+    {
+        "text": "[eggs] from the server at version 3, so it merges those, adds bacon, and sends the\n",
+        "label": "text"
+    },
+    {
+        "text": "final value [milk, flour, eggs, bacon] to the server, along with the version\n",
+        "label": "text"
+    },
+    {
+        "text": "number 3. This overwrites [milk, flour] (note that [eggs] was already over\u2010\n",
+        "label": "text"
+    },
+    {
+        "text": "written in the last step) but is concurrent with [eggs, milk, ham], so the server\n",
+        "label": "text"
+    },
+    {
+        "text": "keeps those two concurrent values.",
+        "label": "text"
+    }
+]

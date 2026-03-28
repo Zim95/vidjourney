@@ -1,0 +1,138 @@
+[
+    {
+        "text": "WITH RECURSIVE\n",
+        "label": "code"
+    },
+    {
+        "text": "-- in_usa is the set of vertex IDs of all locations within the United States\n",
+        "label": "code"
+    },
+    {
+        "text": "in_usa(vertex_id) AS (\n",
+        "label": "code"
+    },
+    {
+        "text": "    SELECT vertex_id FROM vertices WHERE properties->>'name' = 'United States'\n",
+        "label": "code"
+    },
+    {
+        "text": "    UNION\n",
+        "label": "code"
+    },
+    {
+        "text": "    SELECT edges.tail_vertex FROM edges\n",
+        "label": "code"
+    },
+    {
+        "text": "    JOIN in_usa ON edges.head_vertex = in_usa.vertex_id\n",
+        "label": "code"
+    },
+    {
+        "text": "    WHERE edges.label = 'within'\n",
+        "label": "code"
+    },
+    {
+        "text": "),\n",
+        "label": "code"
+    },
+    {
+        "text": "-- in_europe is the set of vertex IDs of all locations within Europe\n",
+        "label": "code"
+    },
+    {
+        "text": "in_europe(vertex_id) AS (\n",
+        "label": "code"
+    },
+    {
+        "text": "    SELECT vertex_id FROM vertices WHERE properties->>'name' = 'Europe'\n",
+        "label": "code"
+    },
+    {
+        "text": "    UNION\n",
+        "label": "code"
+    },
+    {
+        "text": "    SELECT edges.tail_vertex FROM edges\n",
+        "label": "code"
+    },
+    {
+        "text": "    JOIN in_europe ON edges.head_vertex = in_europe.vertex_id\n",
+        "label": "code"
+    },
+    {
+        "text": "    WHERE edges.label = 'within'\n",
+        "label": "code"
+    },
+    {
+        "text": "),\n",
+        "label": "code"
+    },
+    {
+        "text": "-- born_in_usa is the set of vertex IDs of all people born in the US\n",
+        "label": "code"
+    },
+    {
+        "text": "born_in_usa(vertex_id) AS (\n",
+        "label": "code"
+    },
+    {
+        "text": "    SELECT edges.tail_vertex FROM edges\n",
+        "label": "code"
+    },
+    {
+        "text": "    JOIN in_usa ON edges.head_vertex = in_usa.vertex_id\n",
+        "label": "code"
+    },
+    {
+        "text": "    WHERE edges.label = 'born_in'\n",
+        "label": "code"
+    },
+    {
+        "text": "),\n",
+        "label": "code"
+    },
+    {
+        "text": "-- lives_in_europe is the set of vertex IDs of all people living in Europe\n",
+        "label": "code"
+    },
+    {
+        "text": "lives_in_europe(vertex_id) AS (\n",
+        "label": "code"
+    },
+    {
+        "text": "    SELECT edges.tail_vertex FROM edges\n",
+        "label": "code"
+    },
+    {
+        "text": "    JOIN in_europe ON edges.head_vertex = in_europe.vertex_id\n",
+        "label": "code"
+    },
+    {
+        "text": "    WHERE edges.label = 'lives_in'\n",
+        "label": "code"
+    },
+    {
+        "text": ")\n",
+        "label": "code"
+    },
+    {
+        "text": "SELECT vertices.properties->>'name'\n",
+        "label": "code"
+    },
+    {
+        "text": "FROM vertices\n",
+        "label": "code"
+    },
+    {
+        "text": "-- join to find those people who were both born in the US *and* live in Europe\n",
+        "label": "code"
+    },
+    {
+        "text": "JOIN born_in_usa     ON vertices.vertex_id = born_in_usa.vertex_id\n",
+        "label": "code"
+    },
+    {
+        "text": "JOIN lives_in_europe ON vertices.vertex_id = lives_in_europe.vertex_id;",
+        "label": "code"
+    }
+]

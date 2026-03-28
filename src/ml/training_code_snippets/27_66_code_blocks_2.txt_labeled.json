@@ -1,0 +1,34 @@
+[
+    {
+        "text": "li.selected > p {\n",
+        "label": "code"
+    },
+    {
+        "text": "    background-color: blue;\n",
+        "label": "code"
+    },
+    {
+        "text": "}\n",
+        "label": "code"
+    },
+    {
+        "text": "Here the CSS selector li.selected > p declares the pattern of elements to which we\n",
+        "label": "text"
+    },
+    {
+        "text": "want to apply the blue style: namely, all <p> elements whose direct parent is an <li>\n",
+        "label": "text"
+    },
+    {
+        "text": "element with a CSS class of selected. The element <p>Sharks</p> in the example\n",
+        "label": "text"
+    },
+    {
+        "text": "matches this pattern, but <p>Whales</p> does not match because its <li> parent\n",
+        "label": "text"
+    },
+    {
+        "text": "lacks class=\"selected\".",
+        "label": "text"
+    }
+]

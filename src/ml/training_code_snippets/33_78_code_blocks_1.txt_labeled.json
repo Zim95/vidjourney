@@ -1,0 +1,18 @@
+[
+    {
+        "text": "1. A value in a primitive datatype, such as a string or a number. In that case, the\n",
+        "label": "text"
+    },
+    {
+        "text": "predicate and object of the triple are equivalent to the key and value of a property\n",
+        "label": "text"
+    },
+    {
+        "text": "on the subject vertex. For example, (lucy, age, 33) is like a vertex lucy with prop\u2010\n",
+        "label": "text"
+    },
+    {
+        "text": "erties {\"age\":33}.",
+        "label": "text"
+    }
+]

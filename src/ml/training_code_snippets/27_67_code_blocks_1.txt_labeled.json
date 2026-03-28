@@ -1,0 +1,22 @@
+[
+    {
+        "text": "<xsl:template match=\"li[@class='selected']/p\">\n",
+        "label": "code"
+    },
+    {
+        "text": "<fo:block background-color=\"blue\">\n",
+        "label": "code"
+    },
+    {
+        "text": "<xsl:apply-templates/>\n",
+        "label": "code"
+    },
+    {
+        "text": "</fo:block>\n",
+        "label": "code"
+    },
+    {
+        "text": "</xsl:template>",
+        "label": "code"
+    }
+]

@@ -1,0 +1,38 @@
+[
+    {
+        "text": "counts = Hash.new(0)\n",
+        "label": "code"
+    },
+    {
+        "text": "File.open('/var/log/nginx/access.log') do |file|\n",
+        "label": "code"
+    },
+    {
+        "text": "file.each do |line|\n",
+        "label": "code"
+    },
+    {
+        "text": "url = line.split[6]\n",
+        "label": "code"
+    },
+    {
+        "text": "counts[url] += 1\n",
+        "label": "code"
+    },
+    {
+        "text": "end\n",
+        "label": "code"
+    },
+    {
+        "text": "end\n",
+        "label": "code"
+    },
+    {
+        "text": "top5 = counts.map{|url, count| [count, url] }.sort.reverse[0...5]\n",
+        "label": "code"
+    },
+    {
+        "text": "top5.each{|count, url| puts \"#{count} #{url}\" }",
+        "label": "code"
+    }
+]

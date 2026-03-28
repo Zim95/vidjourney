@@ -1,0 +1,42 @@
+[
+    {
+        "text": "while (true) {\n",
+        "label": "code"
+    },
+    {
+        "text": "    request = getIncomingRequest();\n",
+        "label": "code"
+    },
+    {
+        "text": "    // Ensure that the lease always has at least 10 seconds remaining\n",
+        "label": "code"
+    },
+    {
+        "text": "    if (lease.expiryTimeMillis - System.currentTimeMillis() < 10000) {\n",
+        "label": "code"
+    },
+    {
+        "text": "        lease = lease.renew();\n",
+        "label": "code"
+    },
+    {
+        "text": "    }\n",
+        "label": "code"
+    },
+    {
+        "text": "    if (lease.isValid()) {\n",
+        "label": "code"
+    },
+    {
+        "text": "        process(request);\n",
+        "label": "code"
+    },
+    {
+        "text": "    }\n",
+        "label": "code"
+    },
+    {
+        "text": "}",
+        "label": "code"
+    }
+]

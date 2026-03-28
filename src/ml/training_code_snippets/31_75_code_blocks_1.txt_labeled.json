@@ -1,0 +1,18 @@
+[
+    {
+        "text": "MATCH\n",
+        "label": "code"
+    },
+    {
+        "text": "(person) -[:BORN_IN]->  () -[:WITHIN*0..]-> (us:Location {name:'United States'}),\n",
+        "label": "code"
+    },
+    {
+        "text": "(person) -[:LIVES_IN]-> () -[:WITHIN*0..]-> (eu:Location {name:'Europe'})\n",
+        "label": "code"
+    },
+    {
+        "text": "RETURN person.name",
+        "label": "code"
+    }
+]

@@ -1,0 +1,42 @@
+[
+    {
+        "text": "within_recursive(Location, Name) :- name(Location, Name).     /* Rule 1 */\n",
+        "label": "code"
+    },
+    {
+        "text": "within_recursive(Location, Name) :- within(Location, Via),    /* Rule 2 */\n",
+        "label": "code"
+    },
+    {
+        "text": "within_recursive(Via, Name).\n",
+        "label": "code"
+    },
+    {
+        "text": "migrated(Name, BornIn, LivingIn) :- name(Person, Name),       /* Rule 3 */\n",
+        "label": "code"
+    },
+    {
+        "text": "born_in(Person, BornLoc),\n",
+        "label": "code"
+    },
+    {
+        "text": "within_recursive(BornLoc, BornIn),\n",
+        "label": "code"
+    },
+    {
+        "text": "lives_in(Person, LivingLoc),\n",
+        "label": "code"
+    },
+    {
+        "text": "within_recursive(LivingLoc, LivingIn).\n",
+        "label": "code"
+    },
+    {
+        "text": "?- migrated(Who, 'United States', 'Europe').\n",
+        "label": "code"
+    },
+    {
+        "text": "/* Who = 'Lucy'. */",
+        "label": "code"
+    }
+]

@@ -1,0 +1,34 @@
+[
+    {
+        "text": "1. name(namerica, 'North America') exists in the database, so rule 1 applies. It\n",
+        "label": "text"
+    },
+    {
+        "text": "generates within_recursive(namerica, 'North America').\n",
+        "label": "text"
+    },
+    {
+        "text": "2. within(usa, namerica) exists in the database and the previous step generated\n",
+        "label": "text"
+    },
+    {
+        "text": "within_recursive(namerica, 'North America'), so rule 2 applies. It generates\n",
+        "label": "text"
+    },
+    {
+        "text": "within_recursive(usa, 'North America').\n",
+        "label": "text"
+    },
+    {
+        "text": "3. within(idaho, usa) exists in the database and the previous step generated\n",
+        "label": "text"
+    },
+    {
+        "text": "within_recursive(usa, 'North America'), so rule 2 applies. It generates\n",
+        "label": "text"
+    },
+    {
+        "text": "within_recursive(idaho, 'North America').",
+        "label": "text"
+    }
+]

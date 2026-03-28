@@ -1,0 +1,46 @@
+[
+    {
+        "text": "SELECT\n",
+        "label": "code"
+    },
+    {
+        "text": "dim_date.weekday, dim_product.category,\n",
+        "label": "code"
+    },
+    {
+        "text": "SUM(fact_sales.quantity) AS quantity_sold\n",
+        "label": "code"
+    },
+    {
+        "text": "FROM fact_sales\n",
+        "label": "code"
+    },
+    {
+        "text": "JOIN dim_date    ON fact_sales.date_key   = dim_date.date_key\n",
+        "label": "code"
+    },
+    {
+        "text": "JOIN dim_product ON fact_sales.product_sk = dim_product.product_sk\n",
+        "label": "code"
+    },
+    {
+        "text": "WHERE\n",
+        "label": "code"
+    },
+    {
+        "text": "dim_date.year = 2013 AND\n",
+        "label": "code"
+    },
+    {
+        "text": "dim_product.category IN ('Fresh fruit', 'Candy')\n",
+        "label": "code"
+    },
+    {
+        "text": "GROUP BY\n",
+        "label": "code"
+    },
+    {
+        "text": "dim_date.weekday, dim_product.category;",
+        "label": "code"
+    }
+]

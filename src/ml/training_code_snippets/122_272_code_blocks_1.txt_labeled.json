@@ -1,0 +1,10 @@
+[
+    {
+        "text": "3. If the application decides to go ahead, it makes a write (INSERT, UPDATE, or\n",
+        "label": "text"
+    },
+    {
+        "text": "DELETE) to the database and commits the transaction.",
+        "label": "text"
+    }
+]

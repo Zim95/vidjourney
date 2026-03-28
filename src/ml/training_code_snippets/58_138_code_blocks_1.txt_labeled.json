@@ -1,0 +1,22 @@
+[
+    {
+        "text": "{\n",
+        "label": "code"
+    },
+    {
+        "text": "    \"userName\": \"Martin\",\n",
+        "label": "code"
+    },
+    {
+        "text": "    \"favoriteNumber\": 1337,\n",
+        "label": "code"
+    },
+    {
+        "text": "    \"interests\": [\"daydreaming\", \"hacking\"]\n",
+        "label": "code"
+    },
+    {
+        "text": "}",
+        "label": "code"
+    }
+]

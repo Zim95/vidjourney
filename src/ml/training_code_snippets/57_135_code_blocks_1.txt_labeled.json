@@ -1,0 +1,18 @@
+[
+    {
+        "text": "Many programming languages come with built-in support for encoding in-memory\n",
+        "label": "text"
+    },
+    {
+        "text": "objects into byte sequences. For example, Java has java.io.Serializable [1], Ruby\n",
+        "label": "text"
+    },
+    {
+        "text": "has Marshal [2], Python has pickle [3], and so on. Many third-party libraries also\n",
+        "label": "text"
+    },
+    {
+        "text": "exist, such as Kryo for Java [4].",
+        "label": "text"
+    }
+]

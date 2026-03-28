@@ -1,0 +1,22 @@
+[
+    {
+        "text": "message Person {\n",
+        "label": "code"
+    },
+    {
+        "text": "    required string user_name       = 1;\n",
+        "label": "code"
+    },
+    {
+        "text": "    optional int64  favorite_number = 2;\n",
+        "label": "code"
+    },
+    {
+        "text": "    repeated string interests       = 3;\n",
+        "label": "code"
+    },
+    {
+        "text": "}",
+        "label": "code"
+    }
+]

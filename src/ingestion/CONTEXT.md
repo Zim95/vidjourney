@@ -856,3 +856,10 @@ Final Implementation:
     - Table heuristics are designed to generalize but thresholds are tuned on DDIA-style layout.
     - For very different PDFs, thresholds may require tuning.
     - Future improvement: move table thresholds into config for per-document tuning.
+
+
+AI Section Validator.
+----------------------
+1. Now we add AI.
+2. We are going to use Qwen2.5:3b for reasoning about code to reduce False Positives.
+3. Automate Google Login for the user.

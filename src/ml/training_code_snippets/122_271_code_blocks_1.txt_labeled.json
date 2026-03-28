@@ -1,0 +1,42 @@
+[
+    {
+        "text": "BEGIN TRANSACTION;\n",
+        "label": "code"
+    },
+    {
+        "text": "-- Check for any existing bookings that overlap with the period of noon-1pm\n",
+        "label": "code"
+    },
+    {
+        "text": "SELECT COUNT(*) FROM bookings\n",
+        "label": "code"
+    },
+    {
+        "text": "WHERE room_id = 123 AND\n",
+        "label": "code"
+    },
+    {
+        "text": "end_time > '2015-01-01 12:00' AND start_time < '2015-01-01 13:00';\n",
+        "label": "code"
+    },
+    {
+        "text": "-- If the previous query returned zero:\n",
+        "label": "code"
+    },
+    {
+        "text": "INSERT INTO bookings\n",
+        "label": "code"
+    },
+    {
+        "text": "(room_id, start_time, end_time, user_id)\n",
+        "label": "code"
+    },
+    {
+        "text": "VALUES (123, '2015-01-01 12:00', '2015-01-01 13:00', 666);\n",
+        "label": "code"
+    },
+    {
+        "text": "COMMIT;",
+        "label": "code"
+    }
+]

@@ -1,0 +1,146 @@
+[
+    {
+        "text": "<rdf:RDF xmlns=\"urn:example:\"\n",
+        "label": "code"
+    },
+    {
+        "text": "xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\">\n",
+        "label": "code"
+    },
+    {
+        "text": "<Location rdf:nodeID=\"idaho\">\n",
+        "label": "code"
+    },
+    {
+        "text": "<name>Idaho</name>\n",
+        "label": "code"
+    },
+    {
+        "text": "<type>state</type>\n",
+        "label": "code"
+    },
+    {
+        "text": "<within>\n",
+        "label": "code"
+    },
+    {
+        "text": "<Location rdf:nodeID=\"usa\">\n",
+        "label": "code"
+    },
+    {
+        "text": "<name>United States</name>\n",
+        "label": "code"
+    },
+    {
+        "text": "<type>country</type>\n",
+        "label": "code"
+    },
+    {
+        "text": "<within>\n",
+        "label": "code"
+    },
+    {
+        "text": "<Location rdf:nodeID=\"namerica\">\n",
+        "label": "code"
+    },
+    {
+        "text": "<name>North America</name>\n",
+        "label": "code"
+    },
+    {
+        "text": "<type>continent</type>\n",
+        "label": "code"
+    },
+    {
+        "text": "</Location>\n",
+        "label": "code"
+    },
+    {
+        "text": "</within>\n",
+        "label": "code"
+    },
+    {
+        "text": "</Location>\n",
+        "label": "code"
+    },
+    {
+        "text": "</within>\n",
+        "label": "code"
+    },
+    {
+        "text": "</Location>\n",
+        "label": "code"
+    },
+    {
+        "text": "<Person rdf:nodeID=\"lucy\">\n",
+        "label": "code"
+    },
+    {
+        "text": "<name>Lucy</name>\n",
+        "label": "code"
+    },
+    {
+        "text": "<bornIn rdf:nodeID=\"idaho\"/>\n",
+        "label": "code"
+    },
+    {
+        "text": "</Person>\n",
+        "label": "code"
+    },
+    {
+        "text": "</rdf:RDF>\n",
+        "label": "code"
+    },
+    {
+        "text": "RDF has a few quirks due to the fact that it is designed for internet-wide data\n",
+        "label": "text"
+    },
+    {
+        "text": "exchange. The subject, predicate, and object of a triple are often URIs. For example, a\n",
+        "label": "text"
+    },
+    {
+        "text": "predicate might be an URI such as <http://my-company.com/namespace#within> or\n",
+        "label": "text"
+    },
+    {
+        "text": "<http://my-company.com/namespace#lives_in>, rather than just WITHIN or\n",
+        "label": "text"
+    },
+    {
+        "text": "LIVES_IN. The reasoning behind this design is that you should be able to combine\n",
+        "label": "text"
+    },
+    {
+        "text": "your data with someone else\u2019s data, and if they attach a different meaning to the word\n",
+        "label": "text"
+    },
+    {
+        "text": "within or lives_in, you won\u2019t get a conflict because their predicates are actually\n",
+        "label": "text"
+    },
+    {
+        "text": "<http://other.org/foo#within> and <http://other.org/foo#lives_in>.\n",
+        "label": "text"
+    },
+    {
+        "text": "The URL <http://my-company.com/namespace> doesn\u2019t necessarily need to resolve\n",
+        "label": "text"
+    },
+    {
+        "text": "to anything\u2014from RDF\u2019s point of view, it is simply a namespace. To avoid potential\n",
+        "label": "text"
+    },
+    {
+        "text": "confusion with http:// URLs, the examples in this section use non-resolvable URIs\n",
+        "label": "text"
+    },
+    {
+        "text": "such as urn:example:within. Fortunately, you can just specify this prefix once at the\n",
+        "label": "text"
+    },
+    {
+        "text": "top of the file, and then forget about it.",
+        "label": "text"
+    }
+]

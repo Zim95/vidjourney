@@ -1,0 +1,26 @@
+[
+    {
+        "text": "PREFIX : <urn:example:>\n",
+        "label": "code"
+    },
+    {
+        "text": "SELECT ?personName WHERE {\n",
+        "label": "code"
+    },
+    {
+        "text": "    ?person :name ?personName.\n",
+        "label": "code"
+    },
+    {
+        "text": "    ?person :bornIn  / :within* / :name \"United States\".\n",
+        "label": "code"
+    },
+    {
+        "text": "    ?person :livesIn / :within* / :name \"Europe\".\n",
+        "label": "code"
+    },
+    {
+        "text": "}",
+        "label": "code"
+    }
+]

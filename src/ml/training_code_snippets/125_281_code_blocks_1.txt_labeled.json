@@ -1,0 +1,18 @@
+[
+    {
+        "text": "SELECT * FROM bookings\n",
+        "label": "code"
+    },
+    {
+        "text": "WHERE room_id = 123 AND\n",
+        "label": "code"
+    },
+    {
+        "text": "end_time   > '2018-01-01 12:00' AND\n",
+        "label": "code"
+    },
+    {
+        "text": "start_time < '2018-01-01 13:00';",
+        "label": "code"
+    }
+]

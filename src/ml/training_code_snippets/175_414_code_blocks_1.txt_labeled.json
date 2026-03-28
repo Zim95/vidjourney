@@ -1,0 +1,18 @@
+[
+    {
+        "text": "The second sort sorts by the number (-n) at the start of each line, which is the\n",
+        "label": "text"
+    },
+    {
+        "text": "number of times the URL was requested. It then returns the results in reverse\n",
+        "label": "text"
+    },
+    {
+        "text": "(-r) order, i.e. with the largest number first.\n",
+        "label": "text"
+    },
+    {
+        "text": "Finally, head outputs just the first five lines (-n 5) of input, and discards the rest.",
+        "label": "text"
+    }
+]

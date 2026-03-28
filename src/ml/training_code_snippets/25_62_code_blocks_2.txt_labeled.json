@@ -1,0 +1,14 @@
+[
+    {
+        "text": "ALTER TABLE users ADD COLUMN first_name text;\n",
+        "label": "code"
+    },
+    {
+        "text": "UPDATE users SET first_name = split_part(name, ' ', 1);      -- PostgreSQL\n",
+        "label": "code"
+    },
+    {
+        "text": "UPDATE users SET first_name = substring_index(name, ' ', 1);      -- MySQL",
+        "label": "code"
+    }
+]

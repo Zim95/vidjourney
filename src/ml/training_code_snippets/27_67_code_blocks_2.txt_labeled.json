@@ -1,0 +1,50 @@
+[
+    {
+        "text": "var liElements = document.getElementsByTagName(\"li\");\n",
+        "label": "code"
+    },
+    {
+        "text": "for (var i = 0; i < liElements.length; i++) {\n",
+        "label": "code"
+    },
+    {
+        "text": "    if (liElements[i].className === \"selected\") {\n",
+        "label": "code"
+    },
+    {
+        "text": "        var children = liElements[i].childNodes;\n",
+        "label": "code"
+    },
+    {
+        "text": "        for (var j = 0; j < children.length; j++) {\n",
+        "label": "code"
+    },
+    {
+        "text": "            var child = children[j];\n",
+        "label": "code"
+    },
+    {
+        "text": "            if (child.nodeType === Node.ELEMENT_NODE && child.tagName === \"P\") {\n",
+        "label": "code"
+    },
+    {
+        "text": "                child.setAttribute(\"style\", \"background-color: blue\");\n",
+        "label": "code"
+    },
+    {
+        "text": "            }\n",
+        "label": "code"
+    },
+    {
+        "text": "        }\n",
+        "label": "code"
+    },
+    {
+        "text": "    }\n",
+        "label": "code"
+    },
+    {
+        "text": "}",
+        "label": "code"
+    }
+]

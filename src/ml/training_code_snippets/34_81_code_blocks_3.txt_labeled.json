@@ -1,0 +1,10 @@
+[
+    {
+        "text": "(usa {name:'United States'})   # Cypher\n",
+        "label": "code"
+    },
+    {
+        "text": "?usa :name \"United States\".    # SPARQL",
+        "label": "code"
+    }
+]

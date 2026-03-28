@@ -1,0 +1,62 @@
+[
+    {
+        "text": "{\n",
+        "label": "code"
+    },
+    {
+        "text": "    observationTimestamp: Date.parse(\"Mon, 25 Dec 1995 12:34:56 GMT\"),\n",
+        "label": "code"
+    },
+    {
+        "text": "    family:     \"Sharks\",\n",
+        "label": "code"
+    },
+    {
+        "text": "    species:    \"Carcharodon carcharias\",\n",
+        "label": "code"
+    },
+    {
+        "text": "    numAnimals: 3\n",
+        "label": "code"
+    },
+    {
+        "text": "}\n",
+        "label": "code"
+    },
+    {
+        "text": "{\n",
+        "label": "code"
+    },
+    {
+        "text": "    observationTimestamp: Date.parse(\"Tue, 12 Dec 1995 16:17:18 GMT\"),\n",
+        "label": "code"
+    },
+    {
+        "text": "    family:     \"Sharks\",\n",
+        "label": "code"
+    },
+    {
+        "text": "    species:    \"Carcharias taurus\",\n",
+        "label": "code"
+    },
+    {
+        "text": "    numAnimals: 4\n",
+        "label": "code"
+    },
+    {
+        "text": "}\n",
+        "label": "code"
+    },
+    {
+        "text": "The map function would be called once for each document, resulting in\n",
+        "label": "text"
+    },
+    {
+        "text": "emit(\"1995-12\", 3) and emit(\"1995-12\", 4). Subsequently, the reduce function\n",
+        "label": "text"
+    },
+    {
+        "text": "would be called with reduce(\"1995-12\", [3, 4]), returning 7.",
+        "label": "text"
+    }
+]

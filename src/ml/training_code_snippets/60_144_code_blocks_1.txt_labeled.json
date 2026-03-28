@@ -1,0 +1,22 @@
+[
+    {
+        "text": "record Person {\n",
+        "label": "code"
+    },
+    {
+        "text": "    string               userName;\n",
+        "label": "code"
+    },
+    {
+        "text": "    union { null, long } favoriteNumber = null;\n",
+        "label": "code"
+    },
+    {
+        "text": "    array<string>        interests;\n",
+        "label": "code"
+    },
+    {
+        "text": "}",
+        "label": "code"
+    }
+]

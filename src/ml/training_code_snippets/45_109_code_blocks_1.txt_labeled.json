@@ -1,0 +1,10 @@
+[
+    {
+        "text": "SELECT * FROM restaurants WHERE latitude  > 51.4946 AND latitude  < 51.5079\n",
+        "label": "code"
+    },
+    {
+        "text": "AND longitude > -0.1162 AND longitude < -0.1004;",
+        "label": "code"
+    }
+]

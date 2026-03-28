@@ -1,0 +1,22 @@
+[
+    {
+        "text": "@prefix : <urn:example:>.\n",
+        "label": "code"
+    },
+    {
+        "text": "_:lucy     a :Person;   :name \"Lucy\";          :bornIn _:idaho.\n",
+        "label": "code"
+    },
+    {
+        "text": "_:idaho    a :Location; :name \"Idaho\";         :type \"state\";   :within _:usa.\n",
+        "label": "code"
+    },
+    {
+        "text": "_:usa      a :Location; :name \"United States\"; :type \"country\"; :within _:namerica.\n",
+        "label": "code"
+    },
+    {
+        "text": "_:namerica a :Location; :name \"North America\"; :type \"continent\".",
+        "label": "code"
+    }
+]

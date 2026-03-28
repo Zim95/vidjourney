@@ -1,0 +1,10 @@
+[
+    {
+        "text": "Example 2-4 shows how to express that query in Cypher. The same arrow notation is\n",
+        "label": "text"
+    },
+    {
+        "text": "used in a MATCH clause to find patterns in the graph: (person) -[:BORN_IN]-> ()",
+        "label": "text"
+    }
+]

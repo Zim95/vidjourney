@@ -1,0 +1,10 @@
+[
+    {
+        "text": "2. The second byte, 0xa8, indicates that what follows is a string (top four bits =\n",
+        "label": "text"
+    },
+    {
+        "text": "0xa0) that is eight bytes long (bottom four bits = 0x08).",
+        "label": "text"
+    }
+]

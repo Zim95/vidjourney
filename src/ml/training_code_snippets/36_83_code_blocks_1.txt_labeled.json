@@ -1,0 +1,42 @@
+[
+    {
+        "text": "name(namerica, 'North America').\n",
+        "label": "code"
+    },
+    {
+        "text": "type(namerica, continent).\n",
+        "label": "code"
+    },
+    {
+        "text": "name(usa, 'United States').\n",
+        "label": "code"
+    },
+    {
+        "text": "type(usa, country).\n",
+        "label": "code"
+    },
+    {
+        "text": "within(usa, namerica).\n",
+        "label": "code"
+    },
+    {
+        "text": "name(idaho, 'Idaho').\n",
+        "label": "code"
+    },
+    {
+        "text": "type(idaho, state).\n",
+        "label": "code"
+    },
+    {
+        "text": "within(idaho, usa).\n",
+        "label": "code"
+    },
+    {
+        "text": "name(lucy, 'Lucy').\n",
+        "label": "code"
+    },
+    {
+        "text": "born_in(lucy, idaho).",
+        "label": "code"
+    }
+]

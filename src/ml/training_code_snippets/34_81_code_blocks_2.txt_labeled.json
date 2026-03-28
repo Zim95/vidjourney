@@ -1,0 +1,10 @@
+[
+    {
+        "text": "(person) -[:BORN_IN]-> () -[:WITHIN*0..]-> (location)   # Cypher\n",
+        "label": "code"
+    },
+    {
+        "text": "?person :bornIn / :within* ?location.                   # SPARQL",
+        "label": "code"
+    }
+]

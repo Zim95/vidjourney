@@ -1,0 +1,38 @@
+[
+    {
+        "text": "{\n",
+        "label": "code"
+    },
+    {
+        "text": "    \"type\": \"record\",\n",
+        "label": "code"
+    },
+    {
+        "text": "    \"name\": \"Person\",\n",
+        "label": "code"
+    },
+    {
+        "text": "    \"fields\": [\n",
+        "label": "code"
+    },
+    {
+        "text": "        {\"name\": \"userName\",       \"type\": \"string\"},\n",
+        "label": "code"
+    },
+    {
+        "text": "        {\"name\": \"favoriteNumber\", \"type\": [\"null\", \"long\"], \"default\": null},\n",
+        "label": "code"
+    },
+    {
+        "text": "        {\"name\": \"interests\",      \"type\": {\"type\": \"array\", \"items\": \"string\"}}\n",
+        "label": "code"
+    },
+    {
+        "text": "    ]\n",
+        "label": "code"
+    },
+    {
+        "text": "}",
+        "label": "code"
+    }
+]

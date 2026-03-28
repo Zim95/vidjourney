@@ -1,0 +1,18 @@
+[
+    {
+        "text": "SELECT tweets.*, users.* FROM tweets\n",
+        "label": "code"
+    },
+    {
+        "text": "JOIN users   ON tweets.sender_id    = users.id\n",
+        "label": "code"
+    },
+    {
+        "text": "JOIN follows ON follows.followee_id = users.id\n",
+        "label": "code"
+    },
+    {
+        "text": "WHERE follows.follower_id = current_user",
+        "label": "code"
+    }
+]

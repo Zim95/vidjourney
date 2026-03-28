@@ -1,0 +1,42 @@
+[
+    {
+        "text": "db.observations.aggregate([\n",
+        "label": "code"
+    },
+    {
+        "text": "    { $match: { family: \"Sharks\" } },\n",
+        "label": "code"
+    },
+    {
+        "text": "    { $group: {\n",
+        "label": "code"
+    },
+    {
+        "text": "        _id: {\n",
+        "label": "code"
+    },
+    {
+        "text": "            year:  { $year:  \"$observationTimestamp\" },\n",
+        "label": "code"
+    },
+    {
+        "text": "            month: { $month: \"$observationTimestamp\" }\n",
+        "label": "code"
+    },
+    {
+        "text": "        },\n",
+        "label": "code"
+    },
+    {
+        "text": "        totalAnimals: { $sum: \"$numAnimals\" }\n",
+        "label": "code"
+    },
+    {
+        "text": "    } }\n",
+        "label": "code"
+    },
+    {
+        "text": "]);",
+        "label": "code"
+    }
+]

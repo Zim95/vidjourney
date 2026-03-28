@@ -1,0 +1,58 @@
+[
+    {
+        "text": "db.observations.mapReduce(\n",
+        "label": "code"
+    },
+    {
+        "text": "    function map() {\n",
+        "label": "code"
+    },
+    {
+        "text": "        var year  = this.observationTimestamp.getFullYear();\n",
+        "label": "code"
+    },
+    {
+        "text": "        var month = this.observationTimestamp.getMonth() + 1;\n",
+        "label": "code"
+    },
+    {
+        "text": "        emit(year + \"-\" + month, this.numAnimals);\n",
+        "label": "code"
+    },
+    {
+        "text": "    },\n",
+        "label": "code"
+    },
+    {
+        "text": "    function reduce(key, values) {\n",
+        "label": "code"
+    },
+    {
+        "text": "        return Array.sum(values);\n",
+        "label": "code"
+    },
+    {
+        "text": "    },\n",
+        "label": "code"
+    },
+    {
+        "text": "    {\n",
+        "label": "code"
+    },
+    {
+        "text": "        query: { family: \"Sharks\" },\n",
+        "label": "code"
+    },
+    {
+        "text": "        out: \"monthlySharkReport\"\n",
+        "label": "code"
+    },
+    {
+        "text": "    }\n",
+        "label": "code"
+    },
+    {
+        "text": ");",
+        "label": "code"
+    }
+]

@@ -1,0 +1,18 @@
+[
+    {
+        "text": "BEGIN TRANSACTION;\n",
+        "label": "code"
+    },
+    {
+        "text": "UPDATE accounts SET balance = balance + 11.00 WHERE account_id = 1234;\n",
+        "label": "code"
+    },
+    {
+        "text": "UPDATE accounts SET balance = balance - 11.00 WHERE account_id = 4321;\n",
+        "label": "code"
+    },
+    {
+        "text": "COMMIT;",
+        "label": "code"
+    }
+]

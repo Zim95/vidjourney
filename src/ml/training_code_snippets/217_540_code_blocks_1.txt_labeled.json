@@ -1,0 +1,34 @@
+[
+    {
+        "text": "ALTER TABLE requests ADD UNIQUE (request_id);\n",
+        "label": "code"
+    },
+    {
+        "text": "BEGIN TRANSACTION;\n",
+        "label": "code"
+    },
+    {
+        "text": "INSERT INTO requests\n",
+        "label": "code"
+    },
+    {
+        "text": "(request_id, from_account, to_account, amount)\n",
+        "label": "code"
+    },
+    {
+        "text": "VALUES('0286FDB8-D7E1-423F-B40B-792B3608036C', 4321, 1234, 11.00);\n",
+        "label": "code"
+    },
+    {
+        "text": "UPDATE accounts SET balance = balance + 11.00 WHERE account_id = 1234;\n",
+        "label": "code"
+    },
+    {
+        "text": "UPDATE accounts SET balance = balance - 11.00 WHERE account_id = 4321;\n",
+        "label": "code"
+    },
+    {
+        "text": "COMMIT;",
+        "label": "code"
+    }
+]

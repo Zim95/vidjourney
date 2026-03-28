@@ -1,0 +1,22 @@
+[
+    {
+        "text": "SELECT follows.follower_id AS timeline_id,\n",
+        "label": "code"
+    },
+    {
+        "text": "array_agg(tweets.* ORDER BY tweets.timestamp DESC)\n",
+        "label": "code"
+    },
+    {
+        "text": "FROM tweets\n",
+        "label": "code"
+    },
+    {
+        "text": "JOIN follows ON follows.followee_id = tweets.sender_id\n",
+        "label": "code"
+    },
+    {
+        "text": "GROUP BY follows.follower_id",
+        "label": "code"
+    }
+]

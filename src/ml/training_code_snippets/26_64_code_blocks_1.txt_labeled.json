@@ -1,0 +1,38 @@
+[
+    {
+        "text": "function getSharks() {\n",
+        "label": "code"
+    },
+    {
+        "text": "    var sharks = [];\n",
+        "label": "code"
+    },
+    {
+        "text": "    for (var i = 0; i < animals.length; i++) {\n",
+        "label": "code"
+    },
+    {
+        "text": "        if (animals[i].family === \"Sharks\") {\n",
+        "label": "code"
+    },
+    {
+        "text": "            sharks.push(animals[i]);\n",
+        "label": "code"
+    },
+    {
+        "text": "        }\n",
+        "label": "code"
+    },
+    {
+        "text": "    }\n",
+        "label": "code"
+    },
+    {
+        "text": "    return sharks;\n",
+        "label": "code"
+    },
+    {
+        "text": "}",
+        "label": "code"
+    }
+]

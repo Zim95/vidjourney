@@ -1,0 +1,18 @@
+[
+    {
+        "text": "216.58.210.78 - - [27/Feb/2015:17:55:11 +0000] \"GET /css/typography.css HTTP/1.1\"\n",
+        "label": "text"
+    },
+    {
+        "text": "200 3377 \"http://martin.kleppmann.com/\" \"Mozilla/5.0 (Macintosh; Intel Mac OS X\n",
+        "label": "text"
+    },
+    {
+        "text": "10_9_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/40.0.2214.115\n",
+        "label": "text"
+    },
+    {
+        "text": "Safari/537.36\"",
+        "label": "text"
+    }
+]

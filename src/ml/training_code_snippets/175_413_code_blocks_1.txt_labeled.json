@@ -1,0 +1,26 @@
+[
+    {
+        "text": "cat /var/log/nginx/access.log |\n",
+        "label": "code"
+    },
+    {
+        "text": "awk '{print $7}' |\n",
+        "label": "code"
+    },
+    {
+        "text": "sort             |\n",
+        "label": "code"
+    },
+    {
+        "text": "uniq -c          |\n",
+        "label": "code"
+    },
+    {
+        "text": "sort -r -n       |\n",
+        "label": "code"
+    },
+    {
+        "text": "head -n 5",
+        "label": "code"
+    }
+]

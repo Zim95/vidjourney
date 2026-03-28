@@ -1,0 +1,82 @@
+[
+    {
+        "text": "<ul>\n",
+        "label": "code"
+    },
+    {
+        "text": "<li class=\"selected\">\n",
+        "label": "code"
+    },
+    {
+        "text": "<p>Sharks</p>\n",
+        "label": "code"
+    },
+    {
+        "text": "<ul>\n",
+        "label": "code"
+    },
+    {
+        "text": "<li>Great White Shark</li>\n",
+        "label": "code"
+    },
+    {
+        "text": "<li>Tiger Shark</li>\n",
+        "label": "code"
+    },
+    {
+        "text": "<li>Hammerhead Shark</li>\n",
+        "label": "code"
+    },
+    {
+        "text": "</ul>\n",
+        "label": "code"
+    },
+    {
+        "text": "</li>\n",
+        "label": "code"
+    },
+    {
+        "text": "<li>\n",
+        "label": "code"
+    },
+    {
+        "text": "<p>Whales</p>\n",
+        "label": "code"
+    },
+    {
+        "text": "<ul>\n",
+        "label": "code"
+    },
+    {
+        "text": "<li>Blue Whale</li>\n",
+        "label": "code"
+    },
+    {
+        "text": "<li>Humpback Whale</li>\n",
+        "label": "code"
+    },
+    {
+        "text": "<li>Fin Whale</li>\n",
+        "label": "code"
+    },
+    {
+        "text": "</ul>\n",
+        "label": "code"
+    },
+    {
+        "text": "</li>\n",
+        "label": "code"
+    },
+    {
+        "text": "</ul>\n",
+        "label": "code"
+    },
+    {
+        "text": "The selected item is marked with the CSS class \"selected\".\n",
+        "label": "text"
+    },
+    {
+        "text": "<p>Sharks</p> is the title of the currently selected page.",
+        "label": "text"
+    }
+]

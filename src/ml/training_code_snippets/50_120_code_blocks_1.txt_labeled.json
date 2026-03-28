@@ -1,0 +1,18 @@
+[
+    {
+        "text": "WHERE product_sk IN (30, 68, 69):\n",
+        "label": "code"
+    },
+    {
+        "text": "Load the three bitmaps for product_sk = 30, product_sk = 68, and product_sk\n",
+        "label": "text"
+    },
+    {
+        "text": "= 69, and calculate the bitwise OR of the three bitmaps, which can be done very\n",
+        "label": "text"
+    },
+    {
+        "text": "efficiently.",
+        "label": "text"
+    }
+]

@@ -1,0 +1,30 @@
+[
+    {
+        "text": "In our example, that happens in the () -[:WITHIN*0..]-> () rule in the Cypher\n",
+        "label": "text"
+    },
+    {
+        "text": "query. A person\u2019s LIVES_IN edge may point at any kind of location: a street, a city, a\n",
+        "label": "text"
+    },
+    {
+        "text": "district, a region, a state, etc. A city may be WITHIN a region, a region WITHIN a state, a\n",
+        "label": "text"
+    },
+    {
+        "text": "state WITHIN a country, etc. The LIVES_IN edge may point directly at the location ver\u2010\n",
+        "label": "text"
+    },
+    {
+        "text": "tex you\u2019re looking for, or it may be several levels removed in the location hierarchy.\n",
+        "label": "text"
+    },
+    {
+        "text": "In Cypher, :WITHIN*0.. expresses that fact very concisely: it means \u201cfollow a WITHIN\n",
+        "label": "text"
+    },
+    {
+        "text": "edge, zero or more times.\u201d It is like the * operator in a regular expression.",
+        "label": "text"
+    }
+]

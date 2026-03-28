@@ -1,0 +1,30 @@
+[
+    {
+        "text": "#!/bin/bash\n",
+        "label": "code"
+    },
+    {
+        "text": "db_set () {\n",
+        "label": "code"
+    },
+    {
+        "text": "    echo \"$1,$2\" >> database\n",
+        "label": "code"
+    },
+    {
+        "text": "}\n",
+        "label": "code"
+    },
+    {
+        "text": "db_get () {\n",
+        "label": "code"
+    },
+    {
+        "text": "    grep \"^$1,\" database | sed -e \"s/^$1,//\" | tail -n 1\n",
+        "label": "code"
+    },
+    {
+        "text": "}",
+        "label": "code"
+    }
+]

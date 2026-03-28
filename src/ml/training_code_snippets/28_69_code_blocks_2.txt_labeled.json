@@ -1,0 +1,22 @@
+[
+    {
+        "text": "The map function emits a key (a string consisting of year and month, such as\n",
+        "label": "text"
+    },
+    {
+        "text": "\"2013-12\" or \"2014-1\") and a value (the number of animals in that observation).\n",
+        "label": "text"
+    },
+    {
+        "text": "The key-value pairs emitted by map are grouped by key. For all key-value pairs\n",
+        "label": "text"
+    },
+    {
+        "text": "with the same key (i.e., the same month and year), the reduce function is called\n",
+        "label": "text"
+    },
+    {
+        "text": "once.",
+        "label": "text"
+    }
+]

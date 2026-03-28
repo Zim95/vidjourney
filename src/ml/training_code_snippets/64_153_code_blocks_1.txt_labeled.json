@@ -1,0 +1,26 @@
+[
+    {
+        "text": "The web works this way: clients (web browsers) make requests to web servers, mak\u2010\n",
+        "label": "text"
+    },
+    {
+        "text": "ing GET requests to download HTML, CSS, JavaScript, images, etc., and making POST\n",
+        "label": "text"
+    },
+    {
+        "text": "requests to submit data to the server. The API consists of a standardized set of proto\u2010\n",
+        "label": "text"
+    },
+    {
+        "text": "cols and data formats (HTTP, URLs, SSL/TLS, HTML, etc.). Because web browsers,\n",
+        "label": "text"
+    },
+    {
+        "text": "web servers, and website authors mostly agree on these standards, you can use any\n",
+        "label": "text"
+    },
+    {
+        "text": "web browser to access any website (at least in theory!).",
+        "label": "text"
+    }
+]

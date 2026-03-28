@@ -1,0 +1,34 @@
+[
+    {
+        "text": "$remote_addr - $remote_user [$time_local] \"$request\"\n",
+        "label": "code"
+    },
+    {
+        "text": "$status $body_bytes_sent \"$http_referer\" \"$http_user_agent\"\n",
+        "label": "code"
+    },
+    {
+        "text": "So, this one line of the log indicates that on February 27, 2015, at 17:55:11 UTC, the\n",
+        "label": "text"
+    },
+    {
+        "text": "server received a request for the file /css/typography.css from the client IP address\n",
+        "label": "text"
+    },
+    {
+        "text": "216.58.210.78. The user was not authenticated, so $remote_user is set to a hyphen\n",
+        "label": "text"
+    },
+    {
+        "text": "(-). The response status was 200 (i.e., the request was successful), and the response\n",
+        "label": "text"
+    },
+    {
+        "text": "was 3,377 bytes in size. The web browser was Chrome 40, and it loaded the file\n",
+        "label": "text"
+    },
+    {
+        "text": "because it was referenced in the page at the URL http://martin.kleppmann.com/.",
+        "label": "text"
+    }
+]

@@ -1,0 +1,6 @@
+[
+    {
+        "text": "SELECT COUNT(*) FROM emails WHERE recipient_id = 2 AND unread_flag = true",
+        "label": "code"
+    }
+]

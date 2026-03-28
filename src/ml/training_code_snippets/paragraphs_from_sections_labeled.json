@@ -1,0 +1,2074 @@
+[
+    {
+        "text": "The first four chapters go through the fundamental ideas that apply to all data sys\u2010",
+        "label": "text"
+    },
+    {
+        "text": "First, we need to succinctly describe the current load on the system; only then can we",
+        "label": "text"
+    },
+    {
+        "text": "Home timeline",
+        "label": "text"
+    },
+    {
+        "text": "2. Maintain a cache for each user\u2019s home timeline\u2014like a mailbox of tweets for",
+        "label": "text"
+    },
+    {
+        "text": "The first version of Twitter used approach 1, but the systems struggled to keep up",
+        "label": "text"
+    },
+    {
+        "text": "Consistent hashing, as defined by Karger et al., is a way of evenly distributing load",
+        "label": "text"
+    },
+    {
+        "text": "As discussed, hashing a key to determine its partition can help reduce hot spots.",
+        "label": "text"
+    },
+    {
+        "text": "The partitioning schemes we have discussed so far rely on a key-value data model. If",
+        "label": "text"
+    },
+    {
+        "text": "For example, imagine you are operating a website for selling used cars (illustrated in",
+        "label": "text"
+    },
+    {
+        "text": "In this indexing approach, each partition is completely separate: each partition main\u2010",
+        "label": "text"
+    },
+    {
+        "text": "Rather than each partition having its own secondary index (a local index), we can",
+        "label": "text"
+    },
+    {
+        "text": "We call this kind of index term-partitioned, because the term we\u2019re looking for deter\u2010",
+        "label": "text"
+    },
+    {
+        "text": "Over time, things change in a database:",
+        "label": "text"
+    },
+    {
+        "text": "All of these changes call for data and requests to be moved from one node to another.",
+        "label": "text"
+    },
+    {
+        "text": "There are a few different ways of assigning partitions to nodes. Let\u2019s briefly dis\u2010",
+        "label": "text"
+    },
+    {
+        "text": "In principle, you can even account for mismatched hardware in your cluster: by",
+        "label": "text"
+    },
+    {
+        "text": "There is one important question with regard to rebalancing that we have glossed",
+        "label": "text"
+    },
+    {
+        "text": "We have now partitioned our dataset across multiple nodes running on multiple",
+        "label": "text"
+    },
+    {
+        "text": "This is a challenging problem, because it is important that all participants agree\u2014",
+        "label": "text"
+    },
+    {
+        "text": "For example, LinkedIn\u2019s Espresso uses Helix for cluster management (which in",
+        "label": "text"
+    },
+    {
+        "text": "So far we have focused on very simple queries that read or write a single key (plus",
+        "label": "text"
+    },
+    {
+        "text": "Once you have described the load on your system, you can investigate what happens",
+        "label": "text"
+    },
+    {
+        "text": "Both questions require performance numbers, so let\u2019s look briefly at describing the",
+        "label": "text"
+    },
+    {
+        "text": "Latency and response time Latency and response time are often used synonymously, but they",
+        "label": "text"
+    },
+    {
+        "text": "It\u2019s common to see the average response time of a service reported. (Strictly speaking,",
+        "label": "text"
+    },
+    {
+        "text": "In this chapter we explored different ways of partitioning a large dataset into smaller",
+        "label": "text"
+    },
+    {
+        "text": "In this approach, partitions are typically rebalanced dynamically by splitting the",
+        "label": "text"
+    },
+    {
+        "text": "When partitioning by hash, it is common to create a fixed number of partitions",
+        "label": "text"
+    },
+    {
+        "text": "Finally, we discussed techniques for routing queries to the appropriate partition,",
+        "label": "text"
+    },
+    {
+        "text": "Some authors have claimed that general two-phase commit is too expensive to support,",
+        "label": "text"
+    },
+    {
+        "text": "In order to be reliable, a system has to deal with these faults and ensure that they",
+        "label": "text"
+    },
+    {
+        "text": "Almost all relational databases today, and some nonrelational databases, support",
+        "label": "text"
+    },
+    {
+        "text": "The safety guarantees provided by transactions are often described by the wellknown acronym ACID, which stands for Atomicity, Consistency, Isolation, and Dura\u2010",
+        "label": "text"
+    },
+    {
+        "text": "It\u2019s unfortunate that the same word is used with at least four different meanings. i. Joe Hellerstein has remarked that the C in ACID was \u201ctossed in to make the acronym work\u201d in H\u00e4rder and",
+        "label": "text"
+    },
+    {
+        "text": "Isolation in the sense of ACID means that concurrently executing transactions are",
+        "label": "text"
+    },
+    {
+        "text": "However, in practice, serializable isolation is rarely used, because it carries a perfor\u2010",
+        "label": "text"
+    },
+    {
+        "text": "Historically, durability meant writing to an archive tape. Then it was understood as",
+        "label": "text"
+    },
+    {
+        "text": "In practice, there is no one technique that can provide absolute guarantees. There are",
+        "label": "text"
+    },
+    {
+        "text": "To recap, in ACID, atomicity and isolation describe what the database should do if a",
+        "label": "text"
+    },
+    {
+        "text": "However, you might find this query to be too slow if there are many emails, and",
+        "label": "text"
+    },
+    {
+        "text": "Multi-object transactions require some way of determining which read and write",
+        "label": "text"
+    },
+    {
+        "text": "Those issues would be incredibly confusing, so storage engines almost universally",
+        "label": "text"
+    },
+    {
+        "text": "Such applications can still be implemented without transactions. However, error han\u2010",
+        "label": "text"
+    },
+    {
+        "text": "If two transactions don\u2019t touch the same data, they can safely be run in parallel,",
+        "label": "text"
+    },
+    {
+        "text": "The most basic level of transaction isolation is read committed.v It makes two guaran\u2010",
+        "label": "text"
+    },
+    {
+        "text": "There are a few reasons why it\u2019s useful to prevent dirty reads:",
+        "label": "text"
+    },
+    {
+        "text": "No dirty writes What happens if two transactions concurrently try to update the same object in a",
+        "label": "text"
+    },
+    {
+        "text": "Implementing read committed Read committed is a very popular isolation level. It is the default setting in Oracle",
+        "label": "text"
+    },
+    {
+        "text": "If you look superficially at read committed isolation, you could be forgiven for think\u2010",
+        "label": "text"
+    },
+    {
+        "text": "Say Alice has $1,000 of savings at a bank, split across two accounts with $500 each.",
+        "label": "text"
+    },
+    {
+        "text": "incoming payment has arrived (with a balance of $500), and the other account after",
+        "label": "text"
+    },
+    {
+        "text": "Each row in a table has a created_by field, containing the ID of the transaction that",
+        "label": "text"
+    },
+    {
+        "text": "A long-running transaction may continue using a snapshot for a long time, continu\u2010",
+        "label": "text"
+    },
+    {
+        "text": "The read committed and snapshot isolation levels we\u2019ve discussed so far have been",
+        "label": "text"
+    },
+    {
+        "text": "Because this is such a common problem, a variety of solutions have been developed. Many databases provide atomic update operations, which remove the need to imple\u2010",
+        "label": "text"
+    },
+    {
+        "text": "Similarly, document databases such as MongoDB provide atomic operations for",
+        "label": "text"
+    },
+    {
+        "text": "High percentiles become especially important in backend services that are called mul\u2010",
+        "label": "text"
+    },
+    {
+        "text": "Another option for preventing lost updates, if the database\u2019s built-in atomic opera\u2010",
+        "label": "text"
+    },
+    {
+        "text": "The FOR UPDATE clause indicates that the database should take a lock on all rows",
+        "label": "text"
+    },
+    {
+        "text": "If the content has changed and no longer matches 'old content', this update will",
+        "label": "text"
+    },
+    {
+        "text": "In the previous sections we saw dirty writes and lost updates, two kinds of race condi\u2010",
+        "label": "text"
+    },
+    {
+        "text": "In each transaction, your application first checks that two or more doctors are cur\u2010",
+        "label": "text"
+    },
+    {
+        "text": "As before, FOR UPDATE tells the database to lock all rows returned by this",
+        "label": "text"
+    },
+    {
+        "text": "Write skew may seem like an esoteric issue at first, but once you\u2019re aware of it, you",
+        "label": "text"
+    },
+    {
+        "text": "Unfortunately, snapshot isolation does not prevent another user from concur\u2010",
+        "label": "text"
+    },
+    {
+        "text": "The effect of this write changes the precondition of the decision of step 2. In",
+        "label": "text"
+    },
+    {
+        "text": "In this chapter we have seen several examples of transactions that are prone to race",
+        "label": "text"
+    },
+    {
+        "text": "This is not a new problem\u2014it has been like this since the 1970s, when weak isolation",
+        "label": "text"
+    },
+    {
+        "text": "For now, we will discuss these techniques primarily in the context of single-node",
+        "label": "text"
+    },
+    {
+        "text": "The simplest way of avoiding concurrency problems is to remove the concurrency",
+        "label": "text"
+    },
+    {
+        "text": "The approach of executing transactions serially is implemented in VoltDB/H-Store,",
+        "label": "text"
+    },
+    {
+        "text": "Pros and cons of stored procedures Stored procedures have existed for some time in relational databases, and they have",
+        "label": "text"
+    },
+    {
+        "text": "However, those issues can be overcome. Modern implementations of stored proce\u2010",
+        "label": "text"
+    },
+    {
+        "text": "xi. Sometimes called strong strict two-phase locking (SS2PL) to distinguish it from other variants of 2PL.",
+        "label": "text"
+    },
+    {
+        "text": "For around 30 years, there was only one widely used algorithm for serializability in",
+        "label": "text"
+    },
+    {
+        "text": "In 2PL, writers don\u2019t just block other writers; they also block readers and vice versa.",
+        "label": "text"
+    },
+    {
+        "text": "Since so many locks are in use, it can happen quite easily that transaction A is stuck",
+        "label": "text"
+    },
+    {
+        "text": "A predicate lock restricts access as follows:",
+        "label": "text"
+    },
+    {
+        "text": "The key idea here is that a predicate lock applies even to objects that do not yet exist",
+        "label": "text"
+    },
+    {
+        "text": "Either way, an approximation of the search condition is attached to one of the",
+        "label": "text"
+    },
+    {
+        "text": "This chapter has painted a bleak picture of concurrency control in databases. On the",
+        "label": "text"
+    },
+    {
+        "text": "Detecting stale MVCC reads Recall that snapshot isolation is usually implemented by multi-version concurrency",
+        "label": "text"
+    },
+    {
+        "text": "In order to prevent this anomaly, the database needs to track when a transaction",
+        "label": "text"
+    },
+    {
+        "text": "In the context of two-phase locking we discussed index-range locks (see \u201cIndex-range",
+        "label": "text"
+    },
+    {
+        "text": "Transactions are an abstraction layer that allows an application to pretend that cer\u2010",
+        "label": "text"
+    },
+    {
+        "text": "i. With one exception: we will assume that faults are non-Byzantine (see \u201cByzantine Faults\u201d on page 304).",
+        "label": "text"
+    },
+    {
+        "text": "Hey I just met you",
+        "label": "text"
+    },
+    {
+        "text": "When you are writing a program on a single computer, it normally behaves in a fairly",
+        "label": "text"
+    },
+    {
+        "text": "Now that we have discussed the parameters for describing load and metrics for meas\u2010",
+        "label": "text"
+    },
+    {
+        "text": "There is a spectrum of philosophies on how to build large-scale computing systems:",
+        "label": "text"
+    },
+    {
+        "text": "With these philosophies come very different approaches to handling faults. In a",
+        "label": "text"
+    },
+    {
+        "text": "If we want to make distributed systems work, we must accept the possibility of partial",
+        "label": "text"
+    },
+    {
+        "text": "You may wonder whether this makes any sense\u2014intuitively it may seem like a system",
+        "label": "text"
+    },
+    {
+        "text": "Although the system can be more reliable than its underlying parts, there is always a",
+        "label": "text"
+    },
+    {
+        "text": "As discussed in the introduction to Part II, the distributed systems we focus on in this",
+        "label": "text"
+    },
+    {
+        "text": "The sender can\u2019t even tell whether the packet was delivered: the only option is for the",
+        "label": "text"
+    },
+    {
+        "text": "We have been building computer networks for decades\u2014one might hope that by now",
+        "label": "text"
+    },
+    {
+        "text": "Many systems need to automatically detect faulty nodes. For example:",
+        "label": "text"
+    },
+    {
+        "text": "Unfortunately, the uncertainty about the network makes it difficult to tell whether a",
+        "label": "text"
+    },
+    {
+        "text": "Rapid feedback about a remote node being down is useful, but you can\u2019t count on it.",
+        "label": "text"
+    },
+    {
+        "text": "If a timeout is the only sure way of detecting a fault, then how long should the time\u2010",
+        "label": "text"
+    },
+    {
+        "text": "network link or the receiving node. This means additional queueing at the",
+        "label": "text"
+    },
+    {
+        "text": "Moreover, TCP considers a packet to be lost if it is not acknowledged within some",
+        "label": "text"
+    },
+    {
+        "text": "Some latency-sensitive applications, such as videoconferencing and Voice over IP",
+        "label": "text"
+    },
+    {
+        "text": "Distributed systems would be a lot simpler if we could rely on the network to deliver",
+        "label": "text"
+    },
+    {
+        "text": "More generally, you can think of variable delays as a consequence of dynamic",
+        "label": "text"
+    },
+    {
+        "text": "Clocks and time are important. Applications depend on clocks in various ways to",
+        "label": "text"
+    },
+    {
+        "text": "It is well known that the majority of the cost of software is not in its initial develop\u2010",
+        "label": "text"
+    },
+    {
+        "text": "Modern computers have at least two different kinds of clocks: a time-of-day clock and",
+        "label": "text"
+    },
+    {
+        "text": "Monotonic clocks don\u2019t need synchronization, but time-of-day clocks need to be set",
+        "label": "text"
+    },
+    {
+        "text": "It is possible to achieve very good clock accuracy if you care about it sufficiently to",
+        "label": "text"
+    },
+    {
+        "text": "The problem with clocks is that while they seem simple and easy to use, they have a",
+        "label": "text"
+    },
+    {
+        "text": "In Figure 8-3, when a write is replicated to other nodes, it is tagged with a timestamp",
+        "label": "text"
+    },
+    {
+        "text": "needed in order to prevent violations of causality (see \u201cDetecting Concurrent",
+        "label": "text"
+    },
+    {
+        "text": "Thus, even though it is tempting to resolve conflicts by keeping the most \u201crecent\u201d",
+        "label": "text"
+    },
+    {
+        "text": "Let\u2019s consider another example of dangerous clock use in a distributed system. Say",
+        "label": "text"
+    },
+    {
+        "text": "What\u2019s wrong with this code? Firstly, it\u2019s relying on synchronized clocks: the expiry",
+        "label": "text"
+    },
+    {
+        "text": "reduced by changing allocation patterns or tuning GC settings, we must",
+        "label": "text"
+    },
+    {
+        "text": "All of these occurrences can preempt the running thread at any point and resume it at",
+        "label": "text"
+    },
+    {
+        "text": "So far in this chapter we have explored the ways in which distributed systems are dif\u2010",
+        "label": "text"
+    },
+    {
+        "text": "Imagine a network with an asymmetric fault: a node is able to receive all messages",
+        "label": "text"
+    },
+    {
+        "text": "Implementing this in a distributed system requires care: even if a node believes that it",
+        "label": "text"
+    },
+    {
+        "text": "The problem is an example of what we discussed in \u201cProcess Pauses\u201d on page 295: if",
+        "label": "text"
+    },
+    {
+        "text": "Let\u2019s assume that every time the lock server grants a lock or lease, it also returns a",
+        "label": "text"
+    },
+    {
+        "text": "Fencing tokens can detect and block a node that is inadvertently acting in error (e.g.,",
+        "label": "text"
+    },
+    {
+        "text": "The Byzantine Generals Problem is a generalization of the so-called Two Generals",
+        "label": "text"
+    },
+    {
+        "text": "However, in the kinds of systems we discuss in this book, we can usually safely",
+        "label": "text"
+    },
+    {
+        "text": "Many algorithms have been designed to solve distributed systems problems\u2014for",
+        "label": "text"
+    },
+    {
+        "text": "An advantage of distinguishing between safety and liveness properties is that it helps",
+        "label": "text"
+    },
+    {
+        "text": "In this chapter we have discussed a wide range of problems that can occur in dis\u2010",
+        "label": "text"
+    },
+    {
+        "text": "The fact that such partial failures can occur is the defining characteristic of dis\u2010",
+        "label": "text"
+    },
+    {
+        "text": "John Rushby: \u201cBus Architectures for Safety-Critical Embedded Systems,\u201d at 1st",
+        "label": "text"
+    },
+    {
+        "text": "It has been suggested that \u201cgood operations can often work around the limitations of",
+        "label": "text"
+    },
+    {
+        "text": "Good operability means making routine tasks easy, allowing the operations team to",
+        "label": "text"
+    },
+    {
+        "text": "Is it better to be alive and wrong or right and dead?",
+        "label": "text"
+    },
+    {
+        "text": "In \u201cProblems with Replication Lag\u201d on page 161 we looked at some timing issues that",
+        "label": "text"
+    },
+    {
+        "text": "In an eventually consistent database, if you ask two different replicas the same ques\u2010",
+        "label": "text"
+    },
+    {
+        "text": "If Alice and Bob had hit reload at the same time, it would have been less surprising if",
+        "label": "text"
+    },
+    {
+        "text": "The basic idea behind linearizability is simple: to make a system appear as if there is",
+        "label": "text"
+    },
+    {
+        "text": "For simplicity, Figure 9-2 shows only the requests from the clients\u2019 point of view, not",
+        "label": "text"
+    },
+    {
+        "text": "In Figure 9-2, the value of x is initially 0, and client C performs a write request to set",
+        "label": "text"
+    },
+    {
+        "text": "However, that is not yet sufficient to fully describe linearizability: if reads that are",
+        "label": "text"
+    },
+    {
+        "text": "In a linearizable system we imagine that there must be some point in time (between",
+        "label": "text"
+    },
+    {
+        "text": "Each operation in Figure 9-4 is marked with a vertical line (inside the bar for each",
+        "label": "text"
+    },
+    {
+        "text": "There are a few interesting details to point out in Figure 9-4:",
+        "label": "text"
+    },
+    {
+        "text": "other requests, it would be okay for B\u2019s read to return 2. However, client A has",
+        "label": "text"
+    },
+    {
+        "text": "Linearizability is easily confused with serializability (see \u201cSerializability\u201d on page 251),",
+        "label": "text"
+    },
+    {
+        "text": "In what circumstances is linearizability useful? Viewing the final score of a sporting",
+        "label": "text"
+    },
+    {
+        "text": "If the file storage service is linearizable, then this system should work fine. If it is not",
+        "label": "text"
+    },
+    {
+        "text": "Now that we\u2019ve looked at a few examples in which linearizability is useful, let\u2019s think",
+        "label": "text"
+    },
+    {
+        "text": "In Figure 9-6, the initial value of x is 0, and a writer client is updating x to 1 by send\u2010",
+        "label": "text"
+    },
+    {
+        "text": "As some replication methods can provide linearizability and others cannot, it is inter\u2010",
+        "label": "text"
+    },
+    {
+        "text": "v. These two choices are sometimes known as CP (consistent but not available under network partitions) and",
+        "label": "text"
+    },
+    {
+        "text": "vi. As discussed in \u201cNetwork Faults in Practice\u201d on page 279, this book uses partitioning to refer to deliber\u2010",
+        "label": "text"
+    },
+    {
+        "text": "CAP is sometimes presented as Consistency, Availability, Partition tolerance: pick 2",
+        "label": "text"
+    },
+    {
+        "text": "We said previously that a linearizable register behaves as if there is only a single copy",
+        "label": "text"
+    },
+    {
+        "text": "It turns out that there are deep connections between ordering, linearizability, and",
+        "label": "text"
+    },
+    {
+        "text": "Small software projects can have delightfully simple and expressive code, but as",
+        "label": "text"
+    },
+    {
+        "text": "There are several reasons why ordering keeps coming up, and one of the reasons is",
+        "label": "text"
+    },
+    {
+        "text": "Causality imposes an ordering on events: cause comes before effect; a message is sent",
+        "label": "text"
+    },
+    {
+        "text": "Although causality is an important theoretical concept, actually keeping track of all",
+        "label": "text"
+    },
+    {
+        "text": "viii. It is possible to make physical clock timestamps consistent with causality: in \u201cSynchronized clocks for",
+        "label": "text"
+    },
+    {
+        "text": "Lamport timestamps Although the three sequence number generators just described are inconsistent with",
+        "label": "text"
+    },
+    {
+        "text": "A Lamport timestamp bears no relationship to a physical time-of-day clock, but it",
+        "label": "text"
+    },
+    {
+        "text": "This idea of knowing when your total order is finalized is captured in the topic of",
+        "label": "text"
+    },
+    {
+        "text": "If your program runs only on a single CPU core, it is easy to define a total ordering of",
+        "label": "text"
+    },
+    {
+        "text": "Implementing total order broadcast using linearizable storage The last section showed how to build a linearizable compare-and-set operation from",
+        "label": "text"
+    },
+    {
+        "text": "Consensus is one of the most important and fundamental problems in distributed",
+        "label": "text"
+    },
+    {
+        "text": "You may have heard about the FLP result\u2014named after the authors Fischer,",
+        "label": "text"
+    },
+    {
+        "text": "In Chapter 7 we learned that the purpose of transaction atomicity is to provide sim\u2010",
+        "label": "text"
+    },
+    {
+        "text": "If some nodes commit the transaction but others abort it, the nodes become inconsis\u2010",
+        "label": "text"
+    },
+    {
+        "text": "Don\u2019t confuse 2PC and 2PL Two-phase commit (2PC) and two-phase locking (see \u201cTwo-Phase",
+        "label": "text"
+    },
+    {
+        "text": "This process is somewhat like the traditional marriage ceremony in Western cultures:",
+        "label": "text"
+    },
+    {
+        "text": "Without hearing from the coordinator, the participant has no way of knowing",
+        "label": "text"
+    },
+    {
+        "text": "Distributed transactions, especially those implemented with two-phase commit, have",
+        "label": "text"
+    },
+    {
+        "text": "that application servers can be added and removed at will. However, when the",
+        "label": "text"
+    },
+    {
+        "text": "Do these facts mean we should give up all hope of keeping several systems consistent",
+        "label": "text"
+    },
+    {
+        "text": "Informally, consensus means getting several nodes to agree on something. For exam\u2010",
+        "label": "text"
+    },
+    {
+        "text": "Viewstamped Replication, Raft, and Zab implement total order broadcast directly,",
+        "label": "text"
+    },
+    {
+        "text": "Projects like ZooKeeper or etcd are often described as \u201cdistributed key-value stores\u201d",
+        "label": "text"
+    },
+    {
+        "text": "In this chapter we examined the topics of consistency and consensus from several dif\u2010",
+        "label": "text"
+    },
+    {
+        "text": "Wyatt Lloyd, Michael J. Freedman, Michael Kaminsky, and David G. Andersen:",
+        "label": "text"
+    },
+    {
+        "text": "It\u2019s extremely unlikely that your system\u2019s requirements will remain unchanged for\u2010",
+        "label": "text"
+    },
+    {
+        "text": "In Parts I and II of this book, we assembled from the ground up all the major consid\u2010",
+        "label": "text"
+    },
+    {
+        "text": "On a high level, systems that store and process data can be grouped into two broad",
+        "label": "text"
+    },
+    {
+        "text": "We will start in Chapter 10 by examining batch-oriented dataflow systems such as",
+        "label": "text"
+    },
+    {
+        "text": "A system cannot be successful if it is too strongly influenced by a single person. Once the",
+        "label": "text"
+    },
+    {
+        "text": "Let\u2019s start with a simple example. Say you have a web server that appends a line to a",
+        "label": "text"
+    },
+    {
+        "text": "(That is actually one line; it\u2019s only broken onto multiple lines here for readability.)",
+        "label": "text"
+    },
+    {
+        "text": "Various tools can take these log files and produce pretty reports about your website",
+        "label": "text"
+    },
+    {
+        "text": "Read the log file. Split each line into fields by whitespace, and output only the seventh such field",
+        "label": "text"
+    },
+    {
+        "text": "The output of that series of commands looks something like this:",
+        "label": "text"
+    },
+    {
+        "text": "Although the preceding command line likely looks a bit obscure if you\u2019re unfamiliar",
+        "label": "text"
+    },
+    {
+        "text": "counts is a hash table that keeps a counter for the number of times we\u2019ve seen",
+        "label": "text"
+    },
+    {
+        "text": "The Ruby script keeps an in-memory hash table of URLs, where each URL is mapped",
+        "label": "text"
+    },
+    {
+        "text": "It\u2019s no coincidence that we were able to analyze a log file quite easily, using a chain of",
+        "label": "text"
+    },
+    {
+        "text": "Thus, even though Unix tools are quite blunt, simple tools compared to a query opti\u2010",
+        "label": "text"
+    },
+    {
+        "text": "MapReduce is a bit like Unix tools, but distributed across potentially thousands of",
+        "label": "text"
+    },
+    {
+        "text": "MapReduce is a programming framework with which you can write code to process",
+        "label": "text"
+    },
+    {
+        "text": "Each input file is typically hundreds of megabytes in size. The MapReduce scheduler",
+        "label": "text"
+    },
+    {
+        "text": "In most cases, the application code that should run in the map task is not yet present",
+        "label": "text"
+    },
+    {
+        "text": "In this chapter, we have explored some fundamental ways of thinking about dataintensive applications. These principles will guide us through the rest of the book,",
+        "label": "text"
+    },
+    {
+        "text": "We discussed joins in Chapter 2 in the context of data models and query languages,",
+        "label": "text"
+    },
+    {
+        "text": "An analytics task may need to correlate user activity with user profile information:",
+        "label": "text"
+    },
+    {
+        "text": "When the MapReduce framework partitions the mapper output by key and then sorts",
+        "label": "text"
+    },
+    {
+        "text": "The simplest way of implementing such a grouping operation with MapReduce is to",
+        "label": "text"
+    },
+    {
+        "text": "The join algorithms described in the last section perform the actual join logic in the",
+        "label": "text"
+    },
+    {
+        "text": "We have talked a lot about the various algorithms for implementing workflows of",
+        "label": "text"
+    },
+    {
+        "text": "ies is likely to suffer. This can in turn cause operational problems in other parts",
+        "label": "text"
+    },
+    {
+        "text": "A much better solution is to build a brand-new database inside the batch job and",
+        "label": "text"
+    },
+    {
+        "text": "In these areas, the design principles that worked well for Unix also seem to be work\u2010",
+        "label": "text"
+    },
+    {
+        "text": "As we have seen, Hadoop is somewhat like a distributed version of Unix, where",
+        "label": "text"
+    },
+    {
+        "text": "Although MapReduce became very popular and received a lot of hype in the late",
+        "label": "text"
+    },
+    {
+        "text": "As discussed previously, every MapReduce job is independent from every other job.",
+        "label": "text"
+    },
+    {
+        "text": "Dataflow engines In order to fix these problems with MapReduce, several new execution engines for",
+        "label": "text"
+    },
+    {
+        "text": "This style of processing engine is based on research systems like Dryad and",
+        "label": "text"
+    },
+    {
+        "text": "exchanged through a shared memory buffer rather than having to copy it over",
+        "label": "text"
+    },
+    {
+        "text": "You can use dataflow engines to implement the same computations as MapReduce",
+        "label": "text"
+    },
+    {
+        "text": "In \u201cGraph-Like Data Models\u201d on page 49 we discussed using graphs for modeling",
+        "label": "text"
+    },
+    {
+        "text": "Over the years since MapReduce first became popular, the execution engines for dis\u2010",
+        "label": "text"
+    },
+    {
+        "text": "In this chapter we explored the topic of batch processing. We started by looking at",
+        "label": "text"
+    },
+    {
+        "text": "A complex system that works is invariably found to have evolved from a simple system that",
+        "label": "text"
+    },
+    {
+        "text": "The limits of my language mean the limits of my world.",
+        "label": "text"
+    },
+    {
+        "text": "In the batch processing world, the inputs and outputs of a job are files (perhaps on a",
+        "label": "text"
+    },
+    {
+        "text": "A common approach for notifying consumers about new events is to use a messaging",
+        "label": "text"
+    },
+    {
+        "text": "Although these direct messaging systems work well in the situations for which they",
+        "label": "text"
+    },
+    {
+        "text": "This is the traditional view of message brokers, which is encapsulated in standards",
+        "label": "text"
+    },
+    {
+        "text": "The two patterns can be combined: for example, two separate groups of consumers",
+        "label": "text"
+    },
+    {
+        "text": "Even if the message broker otherwise tries to preserve the order of messages (as",
+        "label": "text"
+    },
+    {
+        "text": "Sending a packet over a network or making a request to a network service is normally",
+        "label": "text"
+    },
+    {
+        "text": "Apache Kafka, Amazon Kinesis Streams, and Twitter\u2019s DistributedLog are log-based message brokers that work like this. Google Cloud Pub/Sub is",
+        "label": "text"
+    },
+    {
+        "text": "Thus, in situations where messages may be expensive to process and you want to par\u2010",
+        "label": "text"
+    },
+    {
+        "text": "We have drawn some comparisons between message brokers and databases. Even",
+        "label": "text"
+    },
+    {
+        "text": "As we have seen throughout this book, there is no single system that can satisfy all",
+        "label": "text"
+    },
+    {
+        "text": "Unless you have some additional concurrency detection mechanism, such as the ver\u2010",
+        "label": "text"
+    },
+    {
+        "text": "The problem with most databases\u2019 replication logs is that they have long been consid\u2010",
+        "label": "text"
+    },
+    {
+        "text": "Implementing change data capture We can call the log consumers derived data systems, as discussed in the introduction",
+        "label": "text"
+    },
+    {
+        "text": "There are some parallels between the ideas we\u2019ve discussed here and event sourcing, a",
+        "label": "text"
+    },
+    {
+        "text": "Event sourcing is a powerful technique for data modeling: from an application point",
+        "label": "text"
+    },
+    {
+        "text": "Applications that use event sourcing typically have some mechanism for storing",
+        "label": "text"
+    },
+    {
+        "text": "We saw in Chapter 10 that batch processing benefits from the immutability of its",
+        "label": "text"
+    },
+    {
+        "text": "If you store the changelog durably, that simply has the effect of making the state",
+        "label": "text"
+    },
+    {
+        "text": "So far in this chapter we have talked about where streams come from (user activity",
+        "label": "text"
+    },
+    {
+        "text": "Stream processing has long been used for monitoring purposes, where an organiza\u2010",
+        "label": "text"
+    },
+    {
+        "text": "These kinds of applications require quite sophisticated pattern matching and correla\u2010",
+        "label": "text"
+    },
+    {
+        "text": "Such statistics are usually computed over fixed time intervals\u2014for example, you",
+        "label": "text"
+    },
+    {
+        "text": "That said, there is some crossover area between RPC-like systems and stream pro\u2010",
+        "label": "text"
+    },
+    {
+        "text": "The Internet was done so well that most people think of it as a natural resource like the",
+        "label": "text"
+    },
+    {
+        "text": "If that sounds painfully obvious, that\u2019s just because these data systems are such a suc\u2010",
+        "label": "text"
+    },
+    {
+        "text": "The best-known data model today is probably that of SQL, based on the relational",
+        "label": "text"
+    },
+    {
+        "text": "Stream processors often need to deal with time, especially when used for analytics",
+        "label": "text"
+    },
+    {
+        "text": "Knowing when you\u2019re ready A tricky problem when defining windows in terms of event time is that you can never",
+        "label": "text"
+    },
+    {
+        "text": "By subtracting the second timestamp from the third, you can estimate the offset",
+        "label": "text"
+    },
+    {
+        "text": "In Chapter 10 we discussed how batch jobs can join datasets by key, and how such",
+        "label": "text"
+    },
+    {
+        "text": "Consider the Twitter timeline example that we discussed in \u201cDescribing Load\u201d on",
+        "label": "text"
+    },
+    {
+        "text": "iii. If you regard a stream as the derivative of a table, as in Figure 11-6, and regard a join as a product of two",
+        "label": "text"
+    },
+    {
+        "text": "To implement this cache maintenance in a stream processor, you need streams of",
+        "label": "text"
+    },
+    {
+        "text": "The join of the streams corresponds directly to the join of the tables in that query.",
+        "label": "text"
+    },
+    {
+        "text": "The three types of joins described here (stream-stream, stream-table, and table-table)",
+        "label": "text"
+    },
+    {
+        "text": "In the final section of this chapter, let\u2019s consider how stream processors can tolerate",
+        "label": "text"
+    },
+    {
+        "text": "In this chapter we have discussed event streams, what purposes they serve, and how",
+        "label": "text"
+    },
+    {
+        "text": "Finally, we discussed techniques for achieving fault tolerance and exactly-once",
+        "label": "text"
+    },
+    {
+        "text": "If a thing be ordained to another as to its end, its last end cannot consist in the preservation",
+        "label": "text"
+    },
+    {
+        "text": "A recurring theme in this book has been that for any given problem, there are several",
+        "label": "text"
+    },
+    {
+        "text": "For example, it is common to need to integrate an OLTP database with a full-text",
+        "label": "text"
+    },
+    {
+        "text": "In formal terms, deciding on a total order of events is known as total order broadcast,",
+        "label": "text"
+    },
+    {
+        "text": "Perhaps, over time, patterns for application development will emerge that allow",
+        "label": "text"
+    },
+    {
+        "text": "I would say that the goal of data integration is to make sure that data ends up in the",
+        "label": "text"
+    },
+    {
+        "text": "Large-scale \u201cschema migrations\u201d occur in noncomputer systems as well. For example,",
+        "label": "text"
+    },
+    {
+        "text": "Unifying batch and stream processing More recent work has enabled the benefits of the lambda architecture to be enjoyed",
+        "label": "text"
+    },
+    {
+        "text": "Now, in the 2010s, NoSQL is the latest attempt to overthrow the relational model\u2019s",
+        "label": "text"
+    },
+    {
+        "text": "Different applications have different requirements, and the best choice of technology",
+        "label": "text"
+    },
+    {
+        "text": "At a most abstract level, databases, Hadoop, and operating systems all perform the",
+        "label": "text"
+    },
+    {
+        "text": "Over the course of this book we have discussed various features provided by data\u2010",
+        "label": "text"
+    },
+    {
+        "text": "In Chapters 10 and 11, similar themes emerged. We talked about building full-text",
+        "label": "text"
+    },
+    {
+        "text": "The approach of unbundling databases by composing specialized storage and pro\u2010",
+        "label": "text"
+    },
+    {
+        "text": "The derivation function for a secondary index is so commonly required that it is built",
+        "label": "text"
+    },
+    {
+        "text": "Stable message ordering and fault-tolerant message processing are quite stringent",
+        "label": "text"
+    },
+    {
+        "text": "At an abstract level, the dataflow systems discussed in the last section give you a pro\u2010",
+        "label": "text"
+    },
+    {
+        "text": "But why do you create the derived dataset in the first place? Most likely because you",
+        "label": "text"
+    },
+    {
+        "text": "With stateless services that only read data, it is not a big deal if something goes",
+        "label": "text"
+    },
+    {
+        "text": "Just because an application uses a data system that provides comparatively strong",
+        "label": "text"
+    },
+    {
+        "text": "The same pattern of needing to suppress duplicates occurs in many other places",
+        "label": "text"
+    },
+    {
+        "text": "The client can reconnect to the database and retry the transaction, but now it is out\u2010",
+        "label": "text"
+    },
+    {
+        "text": "To make the operation idempotent through several hops of network communication,",
+        "label": "text"
+    },
+    {
+        "text": "Example 12-2 relies on a uniqueness constraint on the request_id column. If a",
+        "label": "text"
+    },
+    {
+        "text": "Let\u2019s think about correctness in the context of the ideas around unbundling databases",
+        "label": "text"
+    },
+    {
+        "text": "A convenient property of transactions is that they are typically linearizable (see \u201cLin\u2010",
+        "label": "text"
+    },
+    {
+        "text": "This combination of mechanisms seems to me a very promising direction for build\u2010",
+        "label": "text"
+    },
+    {
+        "text": "erately violated for business reasons, and compensation processes (refunds,",
+        "label": "text"
+    },
+    {
+        "text": "In many business contexts, it is actually acceptable to temporarily violate a constraint",
+        "label": "text"
+    },
+    {
+        "text": "Most application development today is done in object-oriented programming lan\u2010",
+        "label": "text"
+    },
+    {
+        "text": "For a data structure like a r\u00e9sum\u00e9, which is mostly a self-contained document, a JSON",
+        "label": "text"
+    },
+    {
+        "text": "Some developers feel that the JSON model reduces the impedance mismatch between",
+        "label": "text"
+    },
+    {
+        "text": "ii. Literature on the relational model distinguishes several different normal forms, but the distinctions are of",
+        "label": "text"
+    },
+    {
+        "text": "All of our discussion of correctness, integrity, and fault-tolerance has been under the",
+        "label": "text"
+    },
+    {
+        "text": "In the final section of this book, I would like to take a step back. Throughout this",
+        "label": "text"
+    },
+    {
+        "text": "For example, predictive analytics is a major part of the \u201cBig Data\u201d hype. Using data",
+        "label": "text"
+    },
+    {
+        "text": "Besides the problems of predictive analytics\u2014i.e., using data to make automated",
+        "label": "text"
+    },
+    {
+        "text": "In this chapter we discussed new approaches to designing data systems, and I",
+        "label": "text"
+    },
+    {
+        "text": "In Example 2-1 in the preceding section, region_id and industry_id are given as",
+        "label": "text"
+    },
+    {
+        "text": "Whether you store an ID or a text string is a question of duplication. When you use",
+        "label": "text"
+    },
+    {
+        "text": "iii. At the time of writing, joins are supported in RethinkDB, not supported in MongoDB, and only sup\u2010",
+        "label": "text"
+    },
+    {
+        "text": "While many-to-many relationships and joins are routinely used in relational data\u2010",
+        "label": "text"
+    },
+    {
+        "text": "There are many differences to consider when comparing relational databases to",
+        "label": "text"
+    },
+    {
+        "text": "On the other hand, in a \u201cstatically typed\u201d database schema, you would typically per\u2010",
+        "label": "text"
+    },
+    {
+        "text": "Schema changes have a bad reputation of being slow and requiring downtime. This",
+        "label": "text"
+    },
+    {
+        "text": "In situations like these, a schema may hurt more than it helps, and schemaless docu\u2010",
+        "label": "text"
+    },
+    {
+        "text": "When the relational model was introduced, it included a new way of querying data:",
+        "label": "text"
+    },
+    {
+        "text": "In the relational algebra, you would instead write: where \u03c3 (the Greek letter sigma) is the selection operator, returning only those ani\u2010",
+        "label": "text"
+    },
+    {
+        "text": "An imperative language tells the computer to perform certain operations in a certain",
+        "label": "text"
+    },
+    {
+        "text": "The advantages of declarative query languages are not limited to just databases. To",
+        "label": "text"
+    },
+    {
+        "text": "Now say you want the title of the currently selected page to have a blue background,",
+        "label": "text"
+    },
+    {
+        "text": "If you were using XSL instead of CSS, you could do something similar:",
+        "label": "text"
+    },
+    {
+        "text": "Here, the XPath expression li[@class='selected']/p is equivalent to the CSS selec\u2010",
+        "label": "text"
+    },
+    {
+        "text": "This JavaScript imperatively sets the element <p>Sharks</p> to have a blue back\u2010",
+        "label": "text"
+    },
+    {
+        "text": "vi. IMS and CODASYL both used imperative query APIs. Applications typically used COBOL code to iterate",
+        "label": "text"
+    },
+    {
+        "text": "MapReduce is a programming model for processing large amounts of data in bulk",
+        "label": "text"
+    },
+    {
+        "text": "The date_trunc('month', timestamp) function determines the calendar month",
+        "label": "text"
+    },
+    {
+        "text": "The filter to consider only shark species can be specified declaratively (this is a",
+        "label": "text"
+    },
+    {
+        "text": "The reduce function adds up the number of animals from all observations in a",
+        "label": "text"
+    },
+    {
+        "text": "The map and reduce functions are somewhat restricted in what they are allowed to",
+        "label": "text"
+    },
+    {
+        "text": "The aggregation pipeline language is similar in expressiveness to a subset of SQL, but",
+        "label": "text"
+    },
+    {
+        "text": "We saw earlier that many-to-many relationships are an important distinguishing fea\u2010",
+        "label": "text"
+    },
+    {
+        "text": "There are several different, but related, ways of structuring and querying data in",
+        "label": "text"
+    },
+    {
+        "text": "We typically think of databases, queues, caches, etc. as being very different categories",
+        "label": "text"
+    },
+    {
+        "text": "When you combine several tools in order to provide a service, the service\u2019s interface",
+        "label": "text"
+    },
+    {
+        "text": "In the property graph model, each vertex consists of:",
+        "label": "text"
+    },
+    {
+        "text": "Each edge consists of:",
+        "label": "text"
+    },
+    {
+        "text": "You can think of a graph store as consisting of two relational tables, one for vertices",
+        "label": "text"
+    },
+    {
+        "text": "Some important aspects of this model are: 1. Any vertex can have an edge connecting it with any other vertex. There is no",
+        "label": "text"
+    },
+    {
+        "text": "Cypher is a declarative query language for property graphs, created for the Neo4j",
+        "label": "text"
+    },
+    {
+        "text": "When all the vertices and edges of Figure 2-5 are added to the database, we can start",
+        "label": "text"
+    },
+    {
+        "text": "matches any two vertices that are related by an edge labeled BORN_IN. The tail vertex",
+        "label": "text"
+    },
+    {
+        "text": "The query can be read as follows: Find any vertex (call it person) that meets both of the following conditions: 1. person has an outgoing BORN_IN edge to some vertex. From that vertex, you can",
+        "label": "text"
+    },
+    {
+        "text": "There are several possible ways of executing the query. The description given here",
+        "label": "text"
+    },
+    {
+        "text": "Example 2-2 suggested that graph data can be represented in a relational database.",
+        "label": "text"
+    },
+    {
+        "text": "Since SQL:1999, this idea of variable-length traversal paths in a query can be",
+        "label": "text"
+    },
+    {
+        "text": "First find the vertex whose name property has the value \"United States\", and",
+        "label": "text"
+    },
+    {
+        "text": "The triple-store model is mostly equivalent to the property graph model, using differ\u2010",
+        "label": "text"
+    },
+    {
+        "text": "2. Another vertex in the graph. In that case, the predicate is an edge in the graph,",
+        "label": "text"
+    },
+    {
+        "text": "In this example, vertices of the graph are written as _:someName. The name doesn\u2019t",
+        "label": "text"
+    },
+    {
+        "text": "The semantic web If you read more about triple-stores, you may get sucked into a maelstrom of articles",
+        "label": "text"
+    },
+    {
+        "text": "SPARQL is a query language for triple-stores using the RDF data model. (It is an",
+        "label": "text"
+    },
+    {
+        "text": "The structure is very similar. The following two expressions are equivalent (variables",
+        "label": "text"
+    },
+    {
+        "text": "Because RDF doesn\u2019t distinguish between properties and edges but just uses predi\u2010",
+        "label": "text"
+    },
+    {
+        "text": "SPARQL is a nice query language\u2014even if the semantic web never happens, it can be",
+        "label": "text"
+    },
+    {
+        "text": "In \u201cAre Document Databases Repeating History?\u201d on page 36 we discussed how",
+        "label": "text"
+    },
+    {
+        "text": "Datalog is a much older language than SPARQL or Cypher, having been studied",
+        "label": "text"
+    },
+    {
+        "text": "Now that we have defined the data, we can write the same query as before, as shown",
+        "label": "text"
+    },
+    {
+        "text": "Cypher and SPARQL jump in right away with SELECT, but Datalog takes a small step",
+        "label": "text"
+    },
+    {
+        "text": "By repeated application of rules 1 and 2, the within_recursive predicate can tell us",
+        "label": "text"
+    },
+    {
+        "text": "Now rule 3 can find people who were born in some location BornIn and live in some",
+        "label": "text"
+    },
+    {
+        "text": "Data models are a huge subject, and in this chapter we have taken a quick look at a",
+        "label": "text"
+    },
+    {
+        "text": "DNA molecule) and matching it against a large database of strings that are simi\u2010",
+        "label": "text"
+    },
+    {
+        "text": "We have to leave it there for now. In the next chapter we will discuss some of the",
+        "label": "text"
+    },
+    {
+        "text": "Wer Ordnung h\u00e4lt, ist nur zu faul zum Suchen.",
+        "label": "text"
+    },
+    {
+        "text": "Consider the world\u2019s simplest database, implemented as two Bash functions:",
+        "label": "text"
+    },
+    {
+        "text": "These two functions implement a key-value store. You can call db_set key value,",
+        "label": "text"
+    },
+    {
+        "text": "The underlying storage format is very simple: a text file where each line contains a",
+        "label": "text"
+    },
+    {
+        "text": "Our db_set function actually has pretty good performance for something that is so",
+        "label": "text"
+    },
+    {
+        "text": "Everybody has an intuitive idea of what it means for something to be reliable or unre\u2010",
+        "label": "text"
+    },
+    {
+        "text": "If all those things together mean \u201cworking correctly,\u201d then we can understand relia\u2010",
+        "label": "text"
+    },
+    {
+        "text": "Let\u2019s start with indexes for key-value data. This is not the only kind of data you can",
+        "label": "text"
+    },
+    {
+        "text": "This may sound simplistic, but it is a viable approach. In fact, this is essentially what",
+        "label": "text"
+    },
+    {
+        "text": "Moreover, since compaction often makes segments much smaller (assuming that a",
+        "label": "text"
+    },
+    {
+        "text": "Each segment now has its own in-memory hash table, mapping keys to file offsets. In",
+        "label": "text"
+    },
+    {
+        "text": "However, the hash table index also has limitations:",
+        "label": "text"
+    },
+    {
+        "text": "In the next section we will look at an indexing structure that doesn\u2019t have those limi\u2010",
+        "label": "text"
+    },
+    {
+        "text": "In Figure 3-3, each log-structured storage segment is a sequence of key-value pairs.",
+        "label": "text"
+    },
+    {
+        "text": "i. If all keys and values had a fixed size, you could use binary search on a segment file and avoid the inmemory index entirely. However, they are usually variable-length in practice, which makes it difficult to tell",
+        "label": "text"
+    },
+    {
+        "text": "You still need an in-memory index to tell you the offsets for some of the keys, but",
+        "label": "text"
+    },
+    {
+        "text": "This scheme works very well. It only suffers from one problem: if the database",
+        "label": "text"
+    },
+    {
+        "text": "The log-structured indexes we have discussed so far are gaining acceptance, but they",
+        "label": "text"
+    },
+    {
+        "text": "One page is designated as the root of the B-tree; whenever you want to look up a key",
+        "label": "text"
+    },
+    {
+        "text": "This algorithm ensures that the tree remains balanced: a B-tree with n keys always",
+        "label": "text"
+    },
+    {
+        "text": "iii. This variant is sometimes known as a B+ tree, although the optimization is so common that it often isn\u2019t",
+        "label": "text"
+    },
+    {
+        "text": "Even though B-tree implementations are generally more mature than LSM-tree",
+        "label": "text"
+    },
+    {
+        "text": "So far we have only discussed key-value indexes, which are like a primary key index in",
+        "label": "text"
+    },
+    {
+        "text": "The indexes discussed so far only map a single key to a value. That is not sufficient if",
+        "label": "text"
+    },
+    {
+        "text": "A standard B-tree or LSM-tree index is not able to answer that kind of query effi\u2010",
+        "label": "text"
+    },
+    {
+        "text": "approach still requires indexes to fit entirely in memory, though (like the Bitcask",
+        "label": "text"
+    },
+    {
+        "text": "In the early days of business data processing, a write to the database typically corre\u2010",
+        "label": "text"
+    },
+    {
+        "text": "iv. The meaning of online in OLAP is unclear; it probably refers to the fact that queries are not just for prede\u2010",
+        "label": "text"
+    },
+    {
+        "text": "Property",
+        "label": "text"
+    },
+    {
+        "text": "An enterprise may have dozens of different transaction processing systems: systems",
+        "label": "text"
+    },
+    {
+        "text": "A data warehouse, by contrast, is a separate database that analysts can query to their",
+        "label": "text"
+    },
+    {
+        "text": "Data warehouses now exist in almost all large enterprises, but in small companies",
+        "label": "text"
+    },
+    {
+        "text": "As explored in Chapter 2, a wide range of different data models are used in the realm",
+        "label": "text"
+    },
+    {
+        "text": "Usually, facts are captured as individual events, because this allows maximum flexi\u2010",
+        "label": "text"
+    },
+    {
+        "text": "If you have trillions of rows and petabytes of data in your fact tables, storing and",
+        "label": "text"
+    },
+    {
+        "text": "Example 3-1. Analyzing whether people are more inclined to buy fresh fruit or candy,",
+        "label": "text"
+    },
+    {
+        "text": "How can we execute this query efficiently? In most OLTP databases, storage is laid out in a row-oriented fashion: all the values",
+        "label": "text"
+    },
+    {
+        "text": "The column-oriented storage layout relies on each column file containing the rows in",
+        "label": "text"
+    },
+    {
+        "text": "When we think of causes of system failure, hardware faults quickly come to mind.",
+        "label": "text"
+    },
+    {
+        "text": "Besides only loading those columns from disk that are required for a query, we can",
+        "label": "text"
+    },
+    {
+        "text": "Often, the number of distinct values in a column is small compared to the number of",
+        "label": "text"
+    },
+    {
+        "text": "WHERE product_sk = 31 AND store_sk = 3:",
+        "label": "text"
+    },
+    {
+        "text": "In a column store, it doesn\u2019t necessarily matter in which order the rows are stored.",
+        "label": "text"
+    },
+    {
+        "text": "These optimizations make sense in data warehouses, because most of the load con\u2010",
+        "label": "text"
+    },
+    {
+        "text": "Not every data warehouse is necessarily a column store: traditional row-oriented",
+        "label": "text"
+    },
+    {
+        "text": "Imagine for now that each fact has foreign keys to only two dimension tables\u2014in",
+        "label": "text"
+    },
+    {
+        "text": "In this chapter we tried to get to the bottom of how databases handle storage and",
+        "label": "text"
+    },
+    {
+        "text": "On the OLTP side, we saw storage engines from two main schools of thought:",
+        "label": "text"
+    },
+    {
+        "text": "Log-structured storage engines are a comparatively recent development. Their key",
+        "label": "text"
+    },
+    {
+        "text": "Everything changes and nothing stands still.",
+        "label": "text"
+    },
+    {
+        "text": "This means that old and new versions of the code, and old and new data formats,",
+        "label": "text"
+    },
+    {
+        "text": "Programs usually work with data in (at least) two different representations: 1. In memory, data is kept in objects, structs, lists, arrays, hash tables, trees, and so",
+        "label": "text"
+    },
+    {
+        "text": "sequence-of-bytes representation looks quite different from the data structures",
+        "label": "text"
+    },
+    {
+        "text": "These encoding libraries are very convenient, because they allow in-memory objects",
+        "label": "text"
+    },
+    {
+        "text": "For these reasons it\u2019s generally a bad idea to use your language\u2019s built-in encoding for",
+        "label": "text"
+    },
+    {
+        "text": "Moving to standardized encodings that can be written and read by many program\u2010",
+        "label": "text"
+    },
+    {
+        "text": "This is a problem when dealing with large numbers; for example, integers greater",
+        "label": "text"
+    },
+    {
+        "text": "Despite these flaws, JSON, XML, and CSV are good enough for many purposes. It\u2019s",
+        "label": "text"
+    },
+    {
+        "text": "Let\u2019s look at an example of MessagePack, a binary encoding for JSON. Figure 4-1",
+        "label": "text"
+    },
+    {
+        "text": "3. The next eight bytes are the field name userName in ASCII. Since the length was",
+        "label": "text"
+    },
+    {
+        "text": "Apache Thrift and Protocol Buffers (protobuf) are binary encoding libraries",
+        "label": "text"
+    },
+    {
+        "text": "iii. Actually, it has three\u2014BinaryProtocol, CompactProtocol, and DenseProtocol\u2014although DenseProtocol",
+        "label": "text"
+    },
+    {
+        "text": "Thrift and Protocol Buffers each come with a code generation tool that takes a",
+        "label": "text"
+    },
+    {
+        "text": "Similarly to Figure 4-1, each field has a type annotation (to indicate whether it is a",
+        "label": "text"
+    },
+    {
+        "text": "Finally, Protocol Buffers (which has only one binary encoding format) encodes the",
+        "label": "text"
+    },
+    {
+        "text": "One detail to note: in the schemas shown earlier, each field was marked either",
+        "label": "text"
+    },
+    {
+        "text": "We usually think of hardware faults as being random and independent from each",
+        "label": "text"
+    },
+    {
+        "text": "The bugs that cause these kinds of software faults often lie dormant for a long time",
+        "label": "text"
+    },
+    {
+        "text": "Apache Avro is another binary encoding format that is interestingly different",
+        "label": "text"
+    },
+    {
+        "text": "The equivalent JSON representation of that schema is as follows:",
+        "label": "text"
+    },
+    {
+        "text": "First of all, notice that there are no tag numbers in the schema. If we encode our",
+        "label": "text"
+    },
+    {
+        "text": "To parse the binary data, you go through the fields in the order that they appear in",
+        "label": "text"
+    },
+    {
+        "text": "Schema evolution rules With Avro, forward compatibility means that you can have a new version of the",
+        "label": "text"
+    },
+    {
+        "text": "As we saw, Protocol Buffers, Thrift, and Avro all use a schema to describe a binary",
+        "label": "text"
+    },
+    {
+        "text": "In summary, schema evolution allows the same kind of flexibility as schemaless/",
+        "label": "text"
+    },
+    {
+        "text": "At the beginning of this chapter we said that whenever you want to send some data to",
+        "label": "text"
+    },
+    {
+        "text": "In a database, the process that writes to the database encodes the data, and the pro\u2010",
+        "label": "text"
+    },
+    {
+        "text": "Different values written at different times A database generally allows any value to be updated at any time. This means that",
+        "label": "text"
+    },
+    {
+        "text": "When you have processes that need to communicate over a network, there are a few",
+        "label": "text"
+    },
+    {
+        "text": "Web browsers are not the only type of client. For example, a native app running on a",
+        "label": "text"
+    },
+    {
+        "text": "need to be encoded into a sequence of bytes that can be sent over the network.",
+        "label": "text"
+    },
+    {
+        "text": "All of these factors mean that there\u2019s no point trying to make a remote service look",
+        "label": "text"
+    },
+    {
+        "text": "Service compatibility is made harder by the fact that RPC is often used for communi\u2010",
+        "label": "text"
+    },
+    {
+        "text": "We have been looking at the different ways encoded data flows from one process to",
+        "label": "text"
+    },
+    {
+        "text": "However, a difference compared to RPC is that message-passing communication is",
+        "label": "text"
+    },
+    {
+        "text": "In this chapter we looked at several ways of turning data structures into bytes on the",
+        "label": "text"
+    },
+    {
+        "text": "vague about datatypes, so you have to be careful with things like numbers and",
+        "label": "text"
+    },
+    {
+        "text": "We also discussed several modes of dataflow, illustrating different scenarios in which",
+        "label": "text"
+    },
+    {
+        "text": "We can conclude that with a bit of care, backward/forward compatibility and rolling",
+        "label": "text"
+    },
+    {
+        "text": "For a successful technology, reality must take precedence over public relations, for nature",
+        "label": "text"
+    },
+    {
+        "text": "If all you need is to scale to higher load, the simplest approach is to buy a more pow\u2010",
+        "label": "text"
+    },
+    {
+        "text": "By contrast, shared-nothing architectures (sometimes called horizontal scaling or",
+        "label": "text"
+    },
+    {
+        "text": "Humans design and build software systems, and the operators who keep the systems",
+        "label": "text"
+    },
+    {
+        "text": "There are two common ways data is distributed across multiple nodes: Replication",
+        "label": "text"
+    },
+    {
+        "text": "With an understanding of those concepts, we can discuss the difficult trade-offs that",
+        "label": "text"
+    },
+    {
+        "text": "The major difference between a thing that might go wrong and a thing that cannot possibly",
+        "label": "text"
+    },
+    {
+        "text": "In this chapter we will assume that your dataset is so small that each machine can",
+        "label": "text"
+    },
+    {
+        "text": "Each node that stores a copy of the database is called a replica. With multiple replicas,",
+        "label": "text"
+    },
+    {
+        "text": "This mode of replication is a built-in feature of many relational databases, such as",
+        "label": "text"
+    },
+    {
+        "text": "An important detail of a replicated system is whether the replication happens syn\u2010",
+        "label": "text"
+    },
+    {
+        "text": "In the example of Figure 5-2, the replication to follower 1 is synchronous: the leader",
+        "label": "text"
+    },
+    {
+        "text": "It can be a serious problem for asynchronously replicated systems to lose data if the",
+        "label": "text"
+    },
+    {
+        "text": "From time to time, you need to set up new followers\u2014perhaps to increase the num\u2010",
+        "label": "text"
+    },
+    {
+        "text": "Any node in the system can go down, perhaps unexpectedly due to a fault, but just as",
+        "label": "text"
+    },
+    {
+        "text": "ii. This approach is known as fencing or, more emphatically, Shoot The Other Node In The Head (STONITH).",
+        "label": "text"
+    },
+    {
+        "text": "There are no easy solutions to these problems. For this reason, some operations",
+        "label": "text"
+    },
+    {
+        "text": "How does leader-based replication work under the hood? Several different replica\u2010",
+        "label": "text"
+    },
+    {
+        "text": "It is possible to work around those issues\u2014for example, the leader can replace any",
+        "label": "text"
+    },
+    {
+        "text": "In either case, the log is an append-only sequence of bytes containing all writes to the",
+        "label": "text"
+    },
+    {
+        "text": "A transaction that modifies several rows generates several such log records, followed",
+        "label": "text"
+    },
+    {
+        "text": "Being able to tolerate node failures is just one reason for wanting replication. As",
+        "label": "text"
+    },
+    {
+        "text": "Many applications let the user submit some data and then view what they have sub\u2010",
+        "label": "text"
+    },
+    {
+        "text": "In this situation, we need read-after-write consistency, also known as read-your-writes",
+        "label": "text"
+    },
+    {
+        "text": "caught up. The timestamp could be a logical timestamp (something that indicates",
+        "label": "text"
+    },
+    {
+        "text": "Another complication arises when the same user is accessing your service from mul\u2010",
+        "label": "text"
+    },
+    {
+        "text": "Reliability is not just for nuclear power stations and air traffic control software\u2014",
+        "label": "text"
+    },
+    {
+        "text": "Our second example of an anomaly that can occur when reading from asynchronous",
+        "label": "text"
+    },
+    {
+        "text": "Monotonic reads is a guarantee that this kind of anomaly does not happen. It\u2019s a",
+        "label": "text"
+    },
+    {
+        "text": "Our third example of replication lag anomalies concerns violation of causality. Imag\u2010",
+        "label": "text"
+    },
+    {
+        "text": "Preventing this kind of anomaly requires another type of guarantee: consistent prefix",
+        "label": "text"
+    },
+    {
+        "text": "When working with an eventually consistent system, it is worth thinking about how",
+        "label": "text"
+    },
+    {
+        "text": "So far in this chapter we have only considered replication architectures using a single",
+        "label": "text"
+    },
+    {
+        "text": "It rarely makes sense to use a multi-leader setup within a single datacenter, because",
+        "label": "text"
+    },
+    {
+        "text": "Let\u2019s compare how the single-leader and multi-leader configurations fare in a multidatacenter deployment: Performance",
+        "label": "text"
+    },
+    {
+        "text": "The biggest problem with multi-leader replication is that write conflicts can occur,",
+        "label": "text"
+    },
+    {
+        "text": "Synchronous versus asynchronous conflict detection In a single-leader database, the second writer will either block and wait for the first",
+        "label": "text"
+    },
+    {
+        "text": "Custom conflict resolution logic As the most appropriate way of resolving a conflict may depend on the application,",
+        "label": "text"
+    },
+    {
+        "text": "Conflict resolution rules can quickly become complicated, and custom code can be",
+        "label": "text"
+    },
+    {
+        "text": "Implementations of these algorithms in databases are still young, but it\u2019s likely that",
+        "label": "text"
+    },
+    {
+        "text": "A replication topology describes the communication paths along which writes are",
+        "label": "text"
+    },
+    {
+        "text": "The most general topology is all-to-all (Figure 5-8 [c]), in which every leader sends its",
+        "label": "text"
+    },
+    {
+        "text": "In Figure 5-9, client A inserts a row into a table on leader 1, and client B updates that",
+        "label": "text"
+    },
+    {
+        "text": "The replication approaches we have discussed so far in this chapter\u2014single-leader",
+        "label": "text"
+    },
+    {
+        "text": "Imagine you have a database with three replicas, and one of the replicas is currently",
+        "label": "text"
+    },
+    {
+        "text": "Now imagine that the unavailable node comes back online, and clients start reading",
+        "label": "text"
+    },
+    {
+        "text": "In Dynamo-style databases, the parameters n, w, and r are typically configurable. A",
+        "label": "text"
+    },
+    {
+        "text": "If fewer than the required w or r nodes are available, writes or reads return an error.",
+        "label": "text"
+    },
+    {
+        "text": "Even if a system is working reliably today, that doesn\u2019t mean it will necessarily work",
+        "label": "text"
+    },
+    {
+        "text": "If you have n replicas, and you choose w and r such that w + r > n, you can generally",
+        "label": "text"
+    },
+    {
+        "text": "Thus, although quorums appear to guarantee that a read returns the latest written",
+        "label": "text"
+    },
+    {
+        "text": "Databases with appropriately configured quorums can tolerate the failure of individ\u2010",
+        "label": "text"
+    },
+    {
+        "text": "The latter is known as a sloppy quorum: writes and reads still require w and r",
+        "label": "text"
+    },
+    {
+        "text": "Dynamo-style databases allow several clients to concurrently write to the same key,",
+        "label": "text"
+    },
+    {
+        "text": "If each node simply overwrote the value for a key whenever it received a write request",
+        "label": "text"
+    },
+    {
+        "text": "An operation A happens before another operation B if B knows about A, or depends",
+        "label": "text"
+    },
+    {
+        "text": "It may seem that two operations should be called concurrent if they occur \u201cat the",
+        "label": "text"
+    },
+    {
+        "text": "1. Client 1 adds milk to the cart. This is the first write to that key, so the server suc\u2010",
+        "label": "text"
+    },
+    {
+        "text": "The dataflow between the operations in Figure 5-13 is illustrated graphically in",
+        "label": "text"
+    },
+    {
+        "text": "Note that the server can determine whether two operations are concurrent by looking",
+        "label": "text"
+    },
+    {
+        "text": "When a write includes the version number from a prior read, that tells us which pre\u2010",
+        "label": "text"
+    },
+    {
+        "text": "However, if you want to allow people to also remove things from their carts, and not",
+        "label": "text"
+    },
+    {
+        "text": "lem, an item cannot simply be deleted from the database when it is removed; instead,",
+        "label": "text"
+    },
+    {
+        "text": "The collection of version numbers from all the replicas is called a version vector.",
+        "label": "text"
+    },
+    {
+        "text": "In this chapter we looked at the issue of replication. Replication can serve several",
+        "label": "text"
+    },
+    {
+        "text": "i. Partitioning, as discussed in this chapter, is a way of intentionally breaking a large database down into",
+        "label": "text"
+    },
+    {
+        "text": "Clearly, we must break away from the sequential and not limit the computers. We must",
+        "label": "text"
+    },
+    {
+        "text": "Partitioning is usually combined with replication so that copies of each partition are",
+        "label": "text"
+    },
+    {
+        "text": "Say you have a large amount of data, and you want to partition it. How do you decide",
+        "label": "text"
+    },
+    {
+        "text": "One way of partitioning is to assign a continuous range of keys (from some mini\u2010",
+        "label": "text"
+    },
+    {
+        "text": "The ranges of keys are not necessarily evenly spaced, because your data may not be",
+        "label": "text"
+    },
+    {
+        "text": "Because of this risk of skew and hot spots, many distributed datastores use a hash",
+        "label": "text"
+    },
+    {
+        "text": "This technique is good at distributing keys fairly among the partitions. The partition",
+        "label": "text"
+    }
+]

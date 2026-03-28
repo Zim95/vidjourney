@@ -1,0 +1,18 @@
+[
+    {
+        "text": "if (user && user.name && !user.first_name) {\n",
+        "label": "code"
+    },
+    {
+        "text": "    // Documents written before Dec 8, 2013 don't have first_name\n",
+        "label": "code"
+    },
+    {
+        "text": "    user.first_name = user.name.split(\" \")[0];\n",
+        "label": "code"
+    },
+    {
+        "text": "}",
+        "label": "code"
+    }
+]

@@ -1,0 +1,22 @@
+[
+    {
+        "text": "SELECT date_trunc('month', observation_timestamp) AS observation_month,\n",
+        "label": "code"
+    },
+    {
+        "text": "sum(num_animals) AS total_animals\n",
+        "label": "code"
+    },
+    {
+        "text": "FROM observations\n",
+        "label": "code"
+    },
+    {
+        "text": "WHERE family = 'Sharks'\n",
+        "label": "code"
+    },
+    {
+        "text": "GROUP BY observation_month;",
+        "label": "code"
+    }
+]

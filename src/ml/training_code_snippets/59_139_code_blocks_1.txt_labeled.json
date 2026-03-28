@@ -1,0 +1,22 @@
+[
+    {
+        "text": "struct Person {\n",
+        "label": "code"
+    },
+    {
+        "text": "    1: required string       userName,\n",
+        "label": "code"
+    },
+    {
+        "text": "    2: optional i64          favoriteNumber,\n",
+        "label": "code"
+    },
+    {
+        "text": "    3: optional list<string> interests\n",
+        "label": "code"
+    },
+    {
+        "text": "}",
+        "label": "code"
+    }
+]

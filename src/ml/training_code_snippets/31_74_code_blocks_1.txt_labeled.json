@@ -1,0 +1,30 @@
+[
+    {
+        "text": "CREATE\n",
+        "label": "code"
+    },
+    {
+        "text": "(NAmerica:Location {name:'North America', type:'continent'}),\n",
+        "label": "code"
+    },
+    {
+        "text": "(USA:Location      {name:'United States', type:'country'  }),\n",
+        "label": "code"
+    },
+    {
+        "text": "(Idaho:Location    {name:'Idaho',         type:'state'    }),\n",
+        "label": "code"
+    },
+    {
+        "text": "(Lucy:Person       {name:'Lucy' }),\n",
+        "label": "code"
+    },
+    {
+        "text": "(Idaho) -[:WITHIN]->  (USA)  -[:WITHIN]-> (NAmerica),\n",
+        "label": "code"
+    },
+    {
+        "text": "(Lucy)  -[:BORN_IN]-> (Idaho)",
+        "label": "code"
+    }
+]
