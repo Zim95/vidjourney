@@ -12,4 +12,5 @@ dependencies = [
     "pygments>=2.19.2",
     "pymupdf>=1.26.4",
     "scikit-learn>=1.8.0",
+    "spacy>=3.8.13",
 ]
