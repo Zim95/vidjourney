@@ -9,7 +9,7 @@ Usage:
 import argparse
 from pathlib import Path
 
-from src.ml.train import predict_is_code_proba
+from src.ingestion.ml.train import predict_is_code_proba
 
 
 def print_line_probabilities(code_block_path: Path) -> None:
@@ -62,4 +62,8 @@ def main():
 
 
 if __name__ == "__main__":
+    # Usage:
+    #   python -m src.ingestion.ml.line_proba --file pipeline/sections/resources/code_blocks/27_66_code_blocks_1.txt
+    #   python -m src.ingestion.ml.line_proba --limit 10
+    #   python -m src.ingestion.ml.line_proba
     main()

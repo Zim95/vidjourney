@@ -152,7 +152,7 @@ class CodeCleanupUtils:
     def _ml_says_not_code(text: str) -> bool:
         """Use the trained RF model to check if text is likely not code. Returns True to demote."""
         try:
-            from src.ml.train import predict_is_code_proba
+            from src.ingestion.ml.train import predict_is_code_proba
             proba = predict_is_code_proba(text)
             return proba < 0.4  # demote if model is fairly confident it's not code
         except Exception:
@@ -216,7 +216,7 @@ class CodeCleanupUtils:
     def _ml_code_proba(text: str) -> float:
         """Return ML probability that text is code. Returns 1.0 if model unavailable."""
         try:
-            from src.ml.train import predict_is_code_proba
+            from src.ingestion.ml.train import predict_is_code_proba
             return predict_is_code_proba(text)
         except Exception:
             return 1.0

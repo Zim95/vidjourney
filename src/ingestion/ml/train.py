@@ -5,8 +5,8 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.metrics import classification_report, accuracy_score
 
-from src.ml.utils import build_code_training_data, extract_hand_crafted_features, N_HAND_CRAFTED
-from src.ml.embed import get_embeddings
+from src.ingestion.ml.utils import build_code_training_data, extract_hand_crafted_features, N_HAND_CRAFTED
+from src.ingestion.ml.embed import get_embeddings
 
 MODELS_DIR = os.path.join(os.getcwd(), "models")
 MODEL_PATH = os.path.join(MODELS_DIR, "code_rf.joblib")
@@ -100,4 +100,5 @@ def predict_is_code_proba(text: str) -> float:
 
 
 if __name__ == "__main__":
+    # Usage: python -m src.ingestion.ml.train
     train_code_rf()

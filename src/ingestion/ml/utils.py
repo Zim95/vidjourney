@@ -4,7 +4,7 @@ import json
 import numpy as np
 from typing import List, Tuple
 
-from src.ml.embed import get_embeddings
+from src.ingestion.ml.embed import get_embeddings
 
 
 CONNECTOR_KEYWORDS = (
