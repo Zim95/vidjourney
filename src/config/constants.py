@@ -72,3 +72,15 @@ INGESTION_CODE_PROSE_CONNECTOR_KEYWORDS = _cfg_text("ingestion", "code_prose_con
 # Ollama / embeddings configuration
 OLLAMA_URL = _cfg_text("ml", "ollama_url", "http://localhost:11434/api/embeddings")
 OLLAMA_MODEL = _cfg_text("ml", "embedding_model", "nomic-embed-text")
+ML_EMBEDDING_BATCH_SIZE = _cfg_int("ml", "embedding_batch_size", 50)
+
+# Model training
+ML_MODELS_DIR = _cfg_path("ml", "models_dir", "models")
+ML_MODEL_FILENAME = _cfg_text("ml", "model_filename", "code_rf.joblib")
+ML_TRAINING_DATA_DIR = _cfg_path("ml", "training_data_dir", "src/ingestion/ml/training_code_snippets")
+ML_N_ESTIMATORS = _cfg_int("ml", "n_estimators", 200)
+ML_TEST_SIZE = float(_cfg_text("ml", "test_size", "0.2"))
+ML_RANDOM_STATE = _cfg_int("ml", "random_state", 42)
+
+# Inference threshold for line-level code detection
+ML_CODE_LINE_THRESHOLD = float(_cfg_text("ml", "code_line_threshold", "0.4"))

@@ -5,6 +5,7 @@ import numpy as np
 from typing import List, Tuple
 
 from src.ingestion.ml.embed import get_embeddings
+from src.config.constants import ML_TRAINING_DATA_DIR
 
 
 CONNECTOR_KEYWORDS = (
@@ -84,7 +85,7 @@ def label_code_training_data() -> None:
     '''
     CURRENT_DIRECTORY = os.getcwd()
     CODE_DIRECTORY = os.path.join(CURRENT_DIRECTORY, 'pipeline/sections/resources/code_blocks/')
-    OUTPUT_DIRECTORY = os.path.join(CURRENT_DIRECTORY, 'src/ml/training_code_snippets/')
+    OUTPUT_DIRECTORY = str(ML_TRAINING_DATA_DIR)
 
     # already processed files
     processed_files = set(os.listdir(OUTPUT_DIRECTORY))
@@ -126,8 +127,7 @@ def build_code_training_data(batch_size: int = 64) -> Tuple[np.ndarray, np.ndarr
         X: numpy array of shape (n_samples, n_hand_crafted + embedding_dim)
         y: numpy array of shape (n_samples,)
     """
-    CURRENT_DIRECTORY = os.getcwd()
-    LABELED_CODE_DIRECTORY = os.path.join(CURRENT_DIRECTORY, 'src/ml/training_code_snippets/')
+    LABELED_CODE_DIRECTORY = str(ML_TRAINING_DATA_DIR)
 
     all_texts: List[str] = []
     all_labels: List[int] = []

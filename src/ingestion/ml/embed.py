@@ -9,10 +9,10 @@ import aiohttp
 import asyncio
 from typing import List, Optional
 
-from src.config.constants import OLLAMA_URL, OLLAMA_MODEL
+from src.config.constants import OLLAMA_URL, OLLAMA_MODEL, ML_EMBEDDING_BATCH_SIZE
 
 MODEL = OLLAMA_MODEL
-BATCH_SIZE = 50
+BATCH_SIZE = ML_EMBEDDING_BATCH_SIZE
 
 
 async def fetch_embedding(session: aiohttp.ClientSession, text: str) -> Optional[List[float]]:

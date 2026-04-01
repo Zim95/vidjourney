@@ -149,16 +149,6 @@ class CodeCleanupUtils:
         return False
 
     @staticmethod
-    def _ml_says_not_code(text: str) -> bool:
-        """Use the trained RF model to check if text is likely not code. Returns True to demote."""
-        try:
-            from src.ingestion.ml.train import predict_is_code_proba
-            proba = predict_is_code_proba(text)
-            return proba < 0.4  # demote if model is fairly confident it's not code
-        except Exception:
-            return False  # if model unavailable, don't demote
-
-    @staticmethod
     def _should_demote_to_paragraph(text: str) -> bool:
         normalized = CodeCleanupUtils._normalize(text)
         if not normalized:
@@ -174,7 +164,6 @@ class CodeCleanupUtils:
                 and CodeCleanupUtils._code_symbol_density(t) <= CodeCleanupUtils.INGESTION_CODE_DEMOTE_SYMBOL_DENSITY
                 and CodeCleanupUtils._sql_keyword_hits(t) <= CodeCleanupUtils.INGESTION_CODE_DEMOTE_SQL_HITS
             )),
-            # ML line-level splitting is handled separately by split_code_blocks_by_ml
         ]
 
         for _name, check in demote_checks:
@@ -224,7 +213,7 @@ class CodeCleanupUtils:
     @staticmethod
     def split_code_blocks_by_ml(
         sections: list[list[tuple[int, PageElement]]],
-        threshold: float = 0.4,
+        threshold: float | None = None,
     ) -> list[list[tuple[int, PageElement]]]:
         """
         For each CodeBlockElement, run ML probability per line.
@@ -232,6 +221,10 @@ class CodeCleanupUtils:
         Lines with proba < threshold become paragraphs.
         Consecutive runs of the same type are grouped together.
         """
+        if threshold is None:
+            from src.config.constants import ML_CODE_LINE_THRESHOLD
+            threshold = ML_CODE_LINE_THRESHOLD
+
         if not sections:
             return []
 

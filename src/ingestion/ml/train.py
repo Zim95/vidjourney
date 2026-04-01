@@ -1,4 +1,3 @@
-import os
 import numpy as np
 import joblib
 from sklearn.ensemble import RandomForestClassifier
@@ -7,9 +6,10 @@ from sklearn.metrics import classification_report, accuracy_score
 
 from src.ingestion.ml.utils import build_code_training_data, extract_hand_crafted_features, N_HAND_CRAFTED
 from src.ingestion.ml.embed import get_embeddings
+from src.config.constants import ML_MODELS_DIR, ML_MODEL_FILENAME, ML_N_ESTIMATORS, ML_TEST_SIZE, ML_RANDOM_STATE
 
-MODELS_DIR = os.path.join(os.getcwd(), "models")
-MODEL_PATH = os.path.join(MODELS_DIR, "code_rf.joblib")
+MODELS_DIR = ML_MODELS_DIR
+MODEL_PATH = MODELS_DIR / ML_MODEL_FILENAME
 
 
 def train_code_rf() -> None:
@@ -22,17 +22,17 @@ def train_code_rf() -> None:
 
     # cross-validation before final fit
     clf = RandomForestClassifier(
-        n_estimators=200,
+        n_estimators=ML_N_ESTIMATORS,
         class_weight="balanced",
         n_jobs=-1,
-        random_state=42,
+        random_state=ML_RANDOM_STATE,
     )
     cv_scores = cross_val_score(clf, X, y, cv=5, scoring="f1")
     print(f"Cross-validation F1: {cv_scores.mean():.3f} (+/- {cv_scores.std():.3f})")
 
     # train/test split for detailed report
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42, stratify=y,
+        X, y, test_size=ML_TEST_SIZE, random_state=ML_RANDOM_STATE, stratify=y,
     )
 
     clf.fit(X_train, y_train)
@@ -58,7 +58,7 @@ def train_code_rf() -> None:
     # retrain on full dataset for production model
     clf.fit(X, y)
 
-    os.makedirs(MODELS_DIR, exist_ok=True)
+    MODELS_DIR.mkdir(parents=True, exist_ok=True)
     joblib.dump(clf, MODEL_PATH)
     print(f"Model saved to {MODEL_PATH}")
 
