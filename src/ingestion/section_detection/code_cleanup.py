@@ -174,7 +174,7 @@ class CodeCleanupUtils:
                 and CodeCleanupUtils._code_symbol_density(t) <= CodeCleanupUtils.INGESTION_CODE_DEMOTE_SYMBOL_DENSITY
                 and CodeCleanupUtils._sql_keyword_hits(t) <= CodeCleanupUtils.INGESTION_CODE_DEMOTE_SQL_HITS
             )),
-            ("ml_model", lambda t: True if CodeCleanupUtils._ml_says_not_code(t) else None),
+            # ML line-level splitting is handled separately by split_code_blocks_by_ml
         ]
 
         for _name, check in demote_checks:
@@ -210,6 +210,85 @@ class CodeCleanupUtils:
             cleaned_sections.append(cleaned_items)
 
         return cleaned_sections
+
+
+    @staticmethod
+    def _ml_code_proba(text: str) -> float:
+        """Return ML probability that text is code. Returns 1.0 if model unavailable."""
+        try:
+            from src.ml.train import predict_is_code_proba
+            return predict_is_code_proba(text)
+        except Exception:
+            return 1.0
+
+    @staticmethod
+    def split_code_blocks_by_ml(
+        sections: list[list[tuple[int, PageElement]]],
+        threshold: float = 0.4,
+    ) -> list[list[tuple[int, PageElement]]]:
+        """
+        For each CodeBlockElement, run ML probability per line.
+        Lines with proba >= threshold stay as code.
+        Lines with proba < threshold become paragraphs.
+        Consecutive runs of the same type are grouped together.
+        """
+        if not sections:
+            return []
+
+        result_sections: list[list[tuple[int, PageElement]]] = []
+
+        for section in sections:
+            result_items: list[tuple[int, PageElement]] = []
+
+            for page_number, element in section:
+                if not isinstance(element, CodeBlockElement):
+                    result_items.append((page_number, element))
+                    continue
+
+                lines = element.text.splitlines()
+                if not lines:
+                    result_items.append((page_number, element))
+                    continue
+
+                # classify each line
+                classified: list[tuple[str, str]] = []  # (type, line_text)
+                for line in lines:
+                    stripped = line.strip()
+                    if not stripped:
+                        # empty lines inherit the type of the previous line
+                        prev_type = classified[-1][0] if classified else "code"
+                        classified.append((prev_type, line))
+                    else:
+                        proba = CodeCleanupUtils._ml_code_proba(stripped)
+                        line_type = "code" if proba >= threshold else "text"
+                        classified.append((line_type, line))
+
+                # group consecutive lines of the same type
+                groups: list[tuple[str, list[str]]] = []
+                for line_type, line_text in classified:
+                    if groups and groups[-1][0] == line_type:
+                        groups[-1][1].append(line_text)
+                    else:
+                        groups.append((line_type, [line_text]))
+
+                for group_type, group_lines in groups:
+                    joined = "\n".join(group_lines).strip()
+                    if not joined:
+                        continue
+
+                    if group_type == "code":
+                        result_items.append((page_number, replace(element, text=joined)))
+                    else:
+                        result_items.append((page_number, ParagraphElement(
+                            page_number=element.page_number,
+                            reading_order_index=element.reading_order_index,
+                            geometry=element.geometry,
+                            text=joined,
+                        )))
+
+            result_sections.append(result_items)
+
+        return result_sections
 
 
 class CodeMergeUtils:

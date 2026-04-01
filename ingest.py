@@ -9,7 +9,7 @@ def main() -> None:
 	ingest(Path('/Users/namahshrestha/Downloads/Books/System Design/Designing Data Intensive Applications.pdf'))
 	group()
 	compile()
-	run_pipeline(renderer="manim")
+	# run_pipeline(renderer="manim")
 
 
 if __name__ == "__main__":
