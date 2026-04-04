@@ -68,6 +68,13 @@ INGESTION_CODE_DEMOTE_SQL_HITS = int(_cfg_text("ingestion", "code_demote_sql_hit
 INGESTION_CODE_PROSE_MIN_LINE_LENGTH = int(_cfg_text("ingestion", "code_prose_min_line_length", "8"))
 INGESTION_CODE_PROSE_CONNECTOR_KEYWORDS = _cfg_text("ingestion", "code_prose_connector_keywords", "which,because,therefore,works,calculate,efficiently,load,find").split(",")
 
+# Code block rendering
+INGESTION_CODE_BLOCKS_DIR = _cfg_path("ingestion", "code_blocks_dir", "pipeline/sections/resources/code_blocks")
+INGESTION_CODE_BLOCK_IMAGES_DIR = _cfg_path("ingestion", "code_block_images_dir", "pipeline/sections/resources/code_block_images")
+INGESTION_CODE_BLOCK_FONT_SIZE = _cfg_int("ingestion", "code_block_font_size", 16)
+INGESTION_CODE_BLOCK_LINE_NUMBERS = _cfg_text("ingestion", "code_block_line_numbers", "false").lower() == "true"
+INGESTION_CODE_BLOCK_STYLE = _cfg_text("ingestion", "code_block_style", "monokai")
+
 
 # Ollama / embeddings configuration
 OLLAMA_URL = _cfg_text("ml", "ollama_url", "http://localhost:11434/api/embeddings")
@@ -84,3 +91,30 @@ ML_RANDOM_STATE = _cfg_int("ml", "random_state", 42)
 
 # Inference threshold for line-level code detection
 ML_CODE_LINE_THRESHOLD = float(_cfg_text("ml", "code_line_threshold", "0.4"))
+
+# Grouping configuration
+GROUPING_SECTIONS_DIR = _cfg_path("grouping", "sections_dir", "pipeline/sections")
+GROUPING_SCENE_GROUPS_DIR = _cfg_path("grouping", "scene_groups_dir", "pipeline/groups/scene_groups")
+GROUPING_TIMELINES_DIR = _cfg_path("grouping", "timelines_dir", "pipeline/groups/timelines")
+GROUPING_CHARS_PER_TOKEN = _cfg_int("grouping", "chars_per_token", 4)
+
+# Timeline timing
+GROUPING_WORDS_PER_MINUTE = float(_cfg_text("grouping", "words_per_minute", "150.0"))
+GROUPING_MIN_SCENE_DURATION = float(_cfg_text("grouping", "min_scene_duration", "4.0"))
+GROUPING_SPAWN_GAP = float(_cfg_text("grouping", "spawn_gap", "0.5"))
+GROUPING_ARROW_DURATION = float(_cfg_text("grouping", "arrow_duration", "1.5"))
+GROUPING_FADE_DURATION = float(_cfg_text("grouping", "fade_duration", "0.5"))
+GROUPING_HOLD_AFTER_ARROW = float(_cfg_text("grouping", "hold_after_arrow", "0.5"))
+
+# Gemini configuration
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_MODEL = _cfg_text("gemini", "model", "gemini-2.0-flash-lite")
+GEMINI_MAX_TOKENS_PER_MINUTE = _cfg_int("gemini", "max_tokens_per_minute", 250000)
+GEMINI_MAX_REQUESTS_PER_MINUTE = _cfg_int("gemini", "max_requests_per_minute", 10)
+GEMINI_MAX_REQUESTS_PER_DAY = _cfg_int("gemini", "max_requests_per_day", 500)
+GEMINI_MAX_RETRIES = _cfg_int("gemini", "max_retries", 3)
+
+# Ollama LLM configuration
+OLLAMA_BASE_URL = _cfg_text("ollama", "base_url", "http://localhost:11434")
+OLLAMA_CHAT_MODEL = _cfg_text("ollama", "chat_model", "llama3.1:8b")
+OLLAMA_MAX_RETRIES = _cfg_int("ollama", "max_retries", 3)

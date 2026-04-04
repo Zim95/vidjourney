@@ -17,6 +17,7 @@ from src.ingestion.page_elements import (
     TableElement,
 )
 from src.ingestion.section_detection.code_cleanup import CodeBlockFormatUtils
+from src.ingestion.code_block_renderer import render_code_block
 from src.ingestion.section_detection.paragraph_utils import ParagraphUtils
 from src.ingestion.section_detection.table_detection import TableDetectionUtils
 
@@ -31,6 +32,7 @@ class SectionWriter:
             "resources": resources_dir,
             "images": resources_dir / "images",
             "code_blocks": resources_dir / "code_blocks",
+            "code_block_images": resources_dir / "code_block_images",
             "tables": resources_dir / "tables",
             "drawings": resources_dir / "drawings",
         }
@@ -121,8 +123,10 @@ class SectionWriter:
         code_text: str,
     ) -> None:
         formatted_code, _extension = CodeBlockFormatUtils.format_for_storage(code_text)
+
+        # Write the raw text file (for reference/debugging)
         SectionWriter._write_resource_and_append(
-            lines=lines,
+            lines=[],  # don't append CODE_BLOCK to section lines
             directories=directories,
             resource_counters=resource_counters,
             section_number=section_number,
@@ -132,6 +136,31 @@ class SectionWriter:
             content=formatted_code,
             line_prefix="CODE_BLOCK",
         )
+
+        # Render to image and append IMAGE to section lines
+        idx = resource_counters[(page_number, "code_blocks")]
+        txt_path = SectionWriter._resource_path_for(
+            directories=directories,
+            section_number=section_number,
+            page_number=page_number,
+            resource_name="code_blocks",
+            extension="txt",
+            index=idx,
+        )
+        image_path = SectionWriter._resource_path_for(
+            directories=directories,
+            section_number=section_number,
+            page_number=page_number,
+            resource_name="code_block_images",
+            extension="png",
+            index=idx,
+        )
+        try:
+            render_code_block(txt_path, image_path)
+            lines.append(f"IMAGE {image_path.as_posix()}")
+        except Exception:
+            # fallback to text reference if rendering fails
+            lines.append(f"CODE_BLOCK {txt_path.as_posix()}")
 
     @staticmethod
     def _resolve_image_binary(
