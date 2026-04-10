@@ -54,7 +54,10 @@ class ManimScene(Scene):
         while remaining > 0.0:
             chunk = min(tick, remaining)
             idle_clips = self._idle_clips(built_elements, active_idle_targets)
-            idle_clips and self.play(*idle_clips, run_time=chunk) or time.sleep(chunk)
+            if idle_clips:
+                self.play(*idle_clips, run_time=chunk)
+            else:
+                self.wait(chunk)
             remaining -= chunk
 
     def _spawn(self, step: dict, built_elements: dict[str, Elements], active_idle_targets: set[str]) -> None:

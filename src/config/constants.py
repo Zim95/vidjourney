@@ -96,15 +96,22 @@ ML_CODE_LINE_THRESHOLD = float(_cfg_text("ml", "code_line_threshold", "0.4"))
 GROUPING_SECTIONS_DIR = _cfg_path("grouping", "sections_dir", "pipeline/sections")
 GROUPING_SCENE_GROUPS_DIR = _cfg_path("grouping", "scene_groups_dir", "pipeline/groups/scene_groups")
 GROUPING_TIMELINES_DIR = _cfg_path("grouping", "timelines_dir", "pipeline/groups/timelines")
+GROUPING_SCENE_FILES_DIR = _cfg_path("grouping", "scene_files_dir", "pipeline/groups/scene_files")
 GROUPING_CHARS_PER_TOKEN = _cfg_int("grouping", "chars_per_token", 4)
+GROUPING_STORYBOARD_DIR = _cfg_path("grouping", "storyboard_dir", "pipeline/groups/storyboard")
 
 # Timeline timing
 GROUPING_WORDS_PER_MINUTE = float(_cfg_text("grouping", "words_per_minute", "150.0"))
 GROUPING_MIN_SCENE_DURATION = float(_cfg_text("grouping", "min_scene_duration", "4.0"))
-GROUPING_SPAWN_GAP = float(_cfg_text("grouping", "spawn_gap", "0.5"))
-GROUPING_ARROW_DURATION = float(_cfg_text("grouping", "arrow_duration", "1.5"))
+GROUPING_SPAWN_DURATION = float(_cfg_text("grouping", "spawn_duration", "0.5"))
 GROUPING_FADE_DURATION = float(_cfg_text("grouping", "fade_duration", "0.5"))
-GROUPING_HOLD_AFTER_ARROW = float(_cfg_text("grouping", "hold_after_arrow", "0.5"))
+GROUPING_ARROW_DURATION = float(_cfg_text("grouping", "arrow_duration", "1.5"))
+GROUPING_MAX_ON_SCREEN = _cfg_int("grouping", "max_on_screen", 6)
+
+# Narration
+GROUPING_PIPER_MODEL = _cfg_text("grouping", "piper_model", "en_US-lessac-medium.onnx")
+GROUPING_NARRATION_DIR = _cfg_path("grouping", "narration_dir", "pipeline/groups/narration")
+GROUPING_OUTPUT_DIR = _cfg_path("grouping", "output_dir", "pipeline/output")
 
 # Gemini configuration
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")

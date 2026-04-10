@@ -38,16 +38,17 @@ Rules:
 1. A scene groups together content that talks about the same idea.
 2. If a PARAGRAPH is clearly describing a nearby IMAGE, TABLE, or CODE_BLOCK, they belong in the same scene. Use CAPTIONs as hints.
 3. If a PARAGRAPH has no associated resource, extract the key entities (concepts, nouns that matter) and relationships between them.
-4. LIST_ITEMs that follow a PARAGRAPH belong in the same scene as that paragraph.
+4. LIST_ITEMs that follow a PARAGRAPH belong in the same scene as that paragraph. Include the list item text in the NARRATE field.
 5. HEADINGs start a new scene only if the content after them shifts topic.
 6. Keep scenes focused. One scene = one idea. Don't merge unrelated paragraphs.
 7. Ignore page_number lines.
+8. NARRATE must contain ALL the text from the section — every PARAGRAPH and LIST_ITEM must appear in exactly one scene's NARRATE. Do not drop or skip any text.
 
 Output format (plain text, no JSON, no markdown):
 
 ---
 SCENE <number>
-NARRATE: <the paragraph/text content to narrate, combine if multiple paragraphs>
+NARRATE: <ALL text content for this scene — paragraphs AND list items combined>
 DISPLAY: <resource path if IMAGE/TABLE/CODE_BLOCK is associated, otherwise leave blank>
 ENTITIES: <comma separated key concepts, only if no DISPLAY>
 RELATIONS: <entity -- verb --> entity, comma separated, only if no DISPLAY>
@@ -229,14 +230,10 @@ def _gemini_handler(pending: list[Path], backend: str, ) -> None:
             print(f"  - {f.name}")
 
 
-def _ollama_handler(pending: list[Path], backend: str, ) -> None:
+def _ollama_handler(pending: list[Path], backend: str) -> None:
     max_retries = OLLAMA_MAX_RETRIES
-    # Ollama queues requests internally, but threading still helps:
-    # while one request waits for Ollama, the callback (duration calc) runs
-    # on the completed file in another thread — so LLM and duration overlap.
-    import os
-    max_workers = os.cpu_count() or 4
-
+    # Ollama processes one request at a time — threading just queues them
+    # and wastes resources. Sequential is cleaner and avoids thread pile-up.
     queue = list(pending)
     attempt = 0
 
@@ -245,26 +242,17 @@ def _ollama_handler(pending: list[Path], backend: str, ) -> None:
             print(f"\nRetry {attempt}/{max_retries}: {len(queue)} file(s) to retry...")
 
         failed: list[Path] = []
+        total = len(queue)
 
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = {
-                executor.submit(_process_file, f, backend): f
-                for f in queue
-            }
-            done = 0
-            total = len(queue)
-            for future in as_completed(futures):
-                done += 1
-                section_file, result, error = future.result()
-                if error:
-                    print(f"  [{done}/{total}] FAILED: {section_file.name} — {error}")
-                    failed.append(section_file)
-                else:
-                    out = output_path(section_file)
-                    out.write_text(result, encoding="utf-8")
-                    print(f"  [{done}/{total}] OK: {section_file.name}")
-                    if on_complete:
-                        on_complete(out)
+        for i, f in enumerate(queue, 1):
+            section_file, result, error = _process_file(f, backend)
+            if error:
+                print(f"  [{i}/{total}] FAILED: {section_file.name} — {error}")
+                failed.append(section_file)
+            else:
+                out = output_path(section_file)
+                out.write_text(result, encoding="utf-8")
+                print(f"  [{i}/{total}] OK: {section_file.name}")
 
         queue = failed
         attempt += 1
