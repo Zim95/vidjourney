@@ -184,3 +184,8 @@ def build_code_training_data(batch_size: int = 64) -> Tuple[np.ndarray, np.ndarr
     print(f"Features: {N_HAND_CRAFTED} hand-crafted + {embedding_array.shape[1]} embedding = {X.shape[1]} total")
 
     return X, y
+
+
+if __name__ == "__main__":
+    # Usage: python -m src.ingestion.ml.utils
+    label_code_training_data()

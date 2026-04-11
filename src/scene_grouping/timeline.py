@@ -17,6 +17,8 @@ from collections import deque
 from pathlib import Path
 from dataclasses import dataclass, field
 
+from src.utils import logger
+
 import yake
 
 from src.config.constants import (
@@ -471,7 +473,7 @@ def process_all_storyboards() -> None:
 
 # --- Watchdog ---
 
-def start_watcher():
+def start_watcher(executor=None):
     from watchdog.observers import Observer
     from watchdog.events import FileSystemEventHandler
     from concurrent.futures import ThreadPoolExecutor
@@ -479,17 +481,16 @@ def start_watcher():
     STORYBOARD_DIR.mkdir(parents=True, exist_ok=True)
     TIMELINES_DIR.mkdir(parents=True, exist_ok=True)
 
-    class StoryboardHandler(FileSystemEventHandler):
-        def __init__(self):
-            self._executor = ThreadPoolExecutor()
+    _executor = executor or ThreadPoolExecutor()
 
+    class StoryboardHandler(FileSystemEventHandler):
         def on_created(self, event):
             if event.is_directory:
                 return
             filepath = Path(event.src_path)
             if filepath.suffix == ".txt" and filepath.stem.startswith("section_"):
-                print(f"  TIMELINE: {filepath.name}")
-                self._executor.submit(process_storyboard_file, filepath)
+                logger.info(f"[watchdog] New storyboard detected: {filepath.name}")
+                _executor.submit(process_storyboard_file, filepath)
 
     handler = StoryboardHandler()
     observer = Observer()

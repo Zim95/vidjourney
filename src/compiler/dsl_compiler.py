@@ -17,16 +17,37 @@ from pathlib import Path
 from src.config.constants import (
     GROUPING_TIMELINES_DIR,
     GROUPING_SCENE_FILES_DIR,
+    GROUPING_CANVAS_X_MIN,
+    GROUPING_CANVAS_X_MAX,
+    GROUPING_CANVAS_Y_MIN,
+    GROUPING_CANVAS_Y_MAX,
+    GROUPING_GRID_MAX_COLS,
+    GROUPING_LIST_X_POSITION,
+    GROUPING_LIST_Y_START,
+    GROUPING_LIST_Y_STEP,
+    GROUPING_SHAPE_SIZE,
+    GROUPING_SIDE_BY_SIDE_SIZE,
+    GROUPING_ANIMATION_SPAWN_TIME,
+    GROUPING_ANIMATION_REMOVE_TIME,
 )
+from src.compiler.relation_classifier import needs_arrow
 
 
 TIMELINES_DIR = GROUPING_TIMELINES_DIR
 SCENE_FILES_DIR = GROUPING_SCENE_FILES_DIR
 
-CANVAS_X_MIN = -5.0
-CANVAS_X_MAX = 5.0
-CANVAS_Y_MIN = -3.0
-CANVAS_Y_MAX = 3.0
+CANVAS_X_MIN = GROUPING_CANVAS_X_MIN
+CANVAS_X_MAX = GROUPING_CANVAS_X_MAX
+CANVAS_Y_MIN = GROUPING_CANVAS_Y_MIN
+CANVAS_Y_MAX = GROUPING_CANVAS_Y_MAX
+GRID_MAX_COLS = GROUPING_GRID_MAX_COLS
+LIST_X = GROUPING_LIST_X_POSITION
+LIST_Y_START = GROUPING_LIST_Y_START
+LIST_Y_STEP = GROUPING_LIST_Y_STEP
+SHAPE_SIZE = GROUPING_SHAPE_SIZE
+SIDE_SIZE = GROUPING_SIDE_BY_SIDE_SIZE
+SPAWN_TIME = GROUPING_ANIMATION_SPAWN_TIME
+REMOVE_TIME = GROUPING_ANIMATION_REMOVE_TIME
 
 COLORS = ["blue", "green", "red", "orange", "purple", "yellow", "cyan", "pink"]
 
@@ -45,7 +66,7 @@ def _grid_positions(count: int) -> list[tuple[float, float]]:
     if count == 1:
         return [(0.0, 0.0)]
 
-    cols = min(count, 4)
+    cols = min(count, GRID_MAX_COLS)
     rows = (count + cols - 1) // cols
     x_step = (CANVAS_X_MAX - CANVAS_X_MIN) / (cols + 1)
     y_step = (CANVAS_Y_MAX - CANVAS_Y_MIN) / (rows + 1)
@@ -62,12 +83,10 @@ def _grid_positions(count: int) -> list[tuple[float, float]]:
 
 def _list_positions(count: int) -> list[tuple[float, float]]:
     """Vertical list layout — items stacked top to bottom, left-aligned."""
-    y_start = 2.5
-    y_step = 1.2
     positions = []
     for i in range(count):
-        y = round(y_start - i * y_step, 1)
-        positions.append((-3.0, y))
+        y = round(LIST_Y_START - i * LIST_Y_STEP, 1)
+        positions.append((LIST_X, y))
     return positions
 
 
@@ -145,8 +164,8 @@ def _compile_title_card(parsed: dict) -> str:
         '    POSITION (0.0,0.0)',
         '    SIZE 2.0',
         '    FILL blue',
-        '    SPAWN shape_popup 0.5',
-        '    REMOVE shape_popout 0.5',
+        f'    SPAWN shape_popup {SPAWN_TIME}',
+        f'    REMOVE shape_popout {REMOVE_TIME}',
         'END',
         '',
         'SEQUENCE',
@@ -174,8 +193,8 @@ def _compile_quote(parsed: dict) -> str:
             '    POSITION (0.0,0.5)',
             '    SIZE 1.5',
             '    FILL blue',
-            '    SPAWN shape_popup 0.5',
-            '    REMOVE shape_popout 0.5',
+            f'    SPAWN shape_popup {SPAWN_TIME}',
+            f'    REMOVE shape_popout {REMOVE_TIME}',
             'END',
             '',
         ])
@@ -192,8 +211,8 @@ def _compile_quote(parsed: dict) -> str:
             '    POSITION (0.0,-1.5)',
             '    SIZE 1.0',
             '    FILL green',
-            '    SPAWN shape_popup 0.5',
-            '    REMOVE shape_popout 0.5',
+            f'    SPAWN shape_popup {SPAWN_TIME}',
+            f'    REMOVE shape_popout {REMOVE_TIME}',
             'END',
             '',
         ])
@@ -222,25 +241,28 @@ def _compile_side_by_side(parsed: dict) -> str:
     left_ident = _sanitize_ident(left_name)
     right_ident = _sanitize_ident(right_name)
 
+    left_x = round(CANVAS_X_MIN / 2, 1)
+    right_x = round(CANVAS_X_MAX / 2, 1)
+
     elements = [
         f'ELEMENT {left_ident} TYPE shape',
         '    SHAPE rectangle',
         f'    TEXT "{_escape_dsl_string(left_name)}"',
-        '    POSITION (-2.5,0.0)',
-        '    SIZE 1.5',
+        f'    POSITION ({left_x},0.0)',
+        f'    SIZE {SIDE_SIZE}',
         '    FILL blue',
-        '    SPAWN shape_popup 0.5',
-        '    REMOVE shape_popout 0.5',
+        f'    SPAWN shape_popup {SPAWN_TIME}',
+        f'    REMOVE shape_popout {REMOVE_TIME}',
         'END',
         '',
         f'ELEMENT {right_ident} TYPE shape',
         '    SHAPE rectangle',
         f'    TEXT "{_escape_dsl_string(right_name)}"',
-        '    POSITION (2.5,0.0)',
-        '    SIZE 1.5',
+        f'    POSITION ({right_x},0.0)',
+        f'    SIZE {SIDE_SIZE}',
         '    FILL red',
-        '    SPAWN shape_popup 0.5',
-        '    REMOVE shape_popout 0.5',
+        f'    SPAWN shape_popup {SPAWN_TIME}',
+        f'    REMOVE shape_popout {REMOVE_TIME}',
         'END',
         '',
     ]
@@ -263,6 +285,13 @@ def _compile_side_by_side(parsed: dict) -> str:
         label_match = re.search(r'--\[(.+?)\]-->', arrow_target)
         label = label_match.group(1) if label_match else "relates to"
 
+        # only draw arrow if the verb warrants it
+        if not needs_arrow(label):
+            arrow_events = []
+
+    if arrow_events:
+        label_match = re.search(r'--\[(.+?)\]-->', arrow_events[0]["target"])
+        label = label_match.group(1) if label_match else "relates to"
         arrow_ident = "arrow_1"
         arrow_duration = arrow_events[0]["duration"]
         gap = round(arrow_events[0]["time"] - (spawn_events[1]["time"] if len(spawn_events) > 1 else 0), 1)
@@ -270,10 +299,8 @@ def _compile_side_by_side(parsed: dict) -> str:
             sequence.append(f'    WAIT {gap}')
 
         # arrow from right edge of left shape to left edge of right shape
-        left_shape_size = 1.5
-        right_shape_size = 1.5
-        arrow_start_x = round(-2.5 + left_shape_size / 2, 1)
-        arrow_end_x = round(2.5 - right_shape_size / 2, 1)
+        arrow_start_x = round(left_x + SIDE_SIZE / 2, 1)
+        arrow_end_x = round(right_x - SIDE_SIZE / 2, 1)
 
         elements.extend([
             f'ELEMENT {arrow_ident} TYPE arrow',
@@ -281,7 +308,7 @@ def _compile_side_by_side(parsed: dict) -> str:
             f'    POSITION ({arrow_start_x},0.0)',
             f'    SPAWN unidirectional_dotted_spawn {arrow_duration}',
             f'    MOVE straight TO ({arrow_end_x},0.0) DURATION {arrow_duration}',
-            f'    REMOVE unidirectional_dotted_remove 0.5',
+            f'    REMOVE unidirectional_dotted_remove {REMOVE_TIME}',
             'END',
             '',
         ])
@@ -329,8 +356,8 @@ def _compile_bullet_list(parsed: dict) -> str:
             f'    POSITION ({x},{y})',
             '    SIZE 0.8',
             f'    FILL {color}',
-            '    SPAWN shape_popup 0.5',
-            '    REMOVE shape_popout 0.5',
+            f'    SPAWN shape_popup {SPAWN_TIME}',
+            f'    REMOVE shape_popout {REMOVE_TIME}',
             'END',
             '',
         ])
@@ -373,8 +400,8 @@ def _compile_flow_diagram(parsed: dict) -> str:
             f'    POSITION ({x},{y})',
             '    SIZE 1.0',
             f'    FILL {color}',
-            '    SPAWN shape_popup 0.5',
-            '    REMOVE shape_popout 0.5',
+            f'    SPAWN shape_popup {SPAWN_TIME}',
+            f'    REMOVE shape_popout {REMOVE_TIME}',
             'END',
             '',
         ])
@@ -391,15 +418,24 @@ def _compile_flow_diagram(parsed: dict) -> str:
         sequence.append(f'    SPAWN {entity_idents[e["target"]]}')
         prev_time = e["time"] + e["duration"]
 
-    # arrows
+    # arrows — only include if the verb warrants it
     arrow_idents = []
     for i, a_event in enumerate(arrow_events):
-        arrow_ident = f"arrow_{i + 1}"
-        arrow_idents.append(arrow_ident)
         target = a_event["target"]
 
-        # parse "src --> dst"
-        parts = re.split(r'\s*-->\s*', target)
+        # parse verb if present: "src --[verb]--> dst" or "src --> dst"
+        verb_match = re.search(r'--\[(.+?)\]-->', target)
+        verb = verb_match.group(1) if verb_match else ""
+
+        if verb and not needs_arrow(verb):
+            continue
+
+        arrow_ident = f"arrow_{i + 1}"
+        arrow_idents.append(arrow_ident)
+
+        # parse "src --> dst" (strip verb brackets if present)
+        clean_target = re.sub(r'\s*--\[.+?\]-->\s*', ' --> ', target)
+        parts = re.split(r'\s*-->\s*', clean_target)
         src_name = parts[0].strip() if len(parts) > 0 else ""
         dst_name = parts[1].strip() if len(parts) > 1 else ""
 
@@ -421,7 +457,7 @@ def _compile_flow_diagram(parsed: dict) -> str:
             f'    POSITION ({arrow_start[0]},{arrow_start[1]})',
             f'    SPAWN unidirectional_dotted_spawn {a_event["duration"]}',
             f'    MOVE straight TO ({arrow_end[0]},{arrow_end[1]}) DURATION {a_event["duration"]}',
-            f'    REMOVE unidirectional_dotted_remove 0.5',
+            f'    REMOVE unidirectional_dotted_remove {REMOVE_TIME}',
             'END',
             '',
         ])
@@ -459,8 +495,8 @@ def _compile_show_resource(parsed: dict) -> str:
         f'    URL "{_escape_dsl_string(resource_path)}"',
         '    POSITION (0.0,0.5)',
         '    SIZE 4.0',
-        '    SPAWN image_popup 0.5',
-        '    REMOVE image_popout 0.5',
+        f'    SPAWN image_popup {SPAWN_TIME}',
+        f'    REMOVE image_popout {REMOVE_TIME}',
         'END',
         '',
     ]
@@ -477,8 +513,8 @@ def _compile_show_resource(parsed: dict) -> str:
             '    POSITION (0.0,-2.5)',
             '    SIZE 0.8',
             '    FILL green',
-            '    SPAWN shape_popup 0.5',
-            '    REMOVE shape_popout 0.5',
+            f'    SPAWN shape_popup {SPAWN_TIME}',
+            f'    REMOVE shape_popout {REMOVE_TIME}',
             'END',
             '',
         ])
@@ -532,8 +568,8 @@ def _compile_narration_only(parsed: dict) -> str:
             f'    POSITION ({x},{y})',
             '    SIZE 1.0',
             f'    FILL {color}',
-            '    SPAWN shape_popup 0.5',
-            '    REMOVE shape_popout 0.5',
+            f'    SPAWN shape_popup {SPAWN_TIME}',
+            f'    REMOVE shape_popout {REMOVE_TIME}',
             'END',
             '',
         ])

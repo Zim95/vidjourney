@@ -30,6 +30,10 @@ def _cfg_path(section: str, key: str, fallback: str) -> Path:
 	return Path(_cfg_text(section, key, fallback))
 
 
+# Pipeline executor pools
+PIPELINE_THREAD_WORKERS = _cfg_int("pipeline", "thread_workers", 4)
+PIPELINE_PROCESS_WORKERS = _cfg_int("pipeline", "process_workers", 4)
+
 SCENES_DIR = _cfg_path("scenes", "scenes_dir", "pipeline/scenes")
 SCENE_FILE_NAME = _cfg_text("scenes", "default_scene_file", "dsl_instructions.scene")
 
@@ -110,8 +114,31 @@ GROUPING_MAX_ON_SCREEN = _cfg_int("grouping", "max_on_screen", 6)
 
 # Narration
 GROUPING_PIPER_MODEL = _cfg_text("grouping", "piper_model", "en_US-lessac-medium.onnx")
+GROUPING_PIPER_SPEAKER_ID = _cfg_int("grouping", "piper_speaker_id", 0)
+GROUPING_PIPER_LENGTH_SCALE = float(_cfg_text("grouping", "piper_length_scale", "1.0"))
 GROUPING_NARRATION_DIR = _cfg_path("grouping", "narration_dir", "pipeline/groups/narration")
 GROUPING_OUTPUT_DIR = _cfg_path("grouping", "output_dir", "pipeline/output")
+
+# Canvas layout for DSL compiler
+GROUPING_CANVAS_X_MIN = float(_cfg_text("grouping", "canvas_x_min", "-5.0"))
+GROUPING_CANVAS_X_MAX = float(_cfg_text("grouping", "canvas_x_max", "5.0"))
+GROUPING_CANVAS_Y_MIN = float(_cfg_text("grouping", "canvas_y_min", "-3.0"))
+GROUPING_CANVAS_Y_MAX = float(_cfg_text("grouping", "canvas_y_max", "3.0"))
+GROUPING_GRID_MAX_COLS = _cfg_int("grouping", "grid_max_cols", 4)
+GROUPING_LIST_X_POSITION = float(_cfg_text("grouping", "list_x_position", "-3.0"))
+GROUPING_LIST_Y_START = float(_cfg_text("grouping", "list_y_start", "2.5"))
+GROUPING_LIST_Y_STEP = float(_cfg_text("grouping", "list_y_step", "1.2"))
+GROUPING_SHAPE_SIZE = float(_cfg_text("grouping", "shape_size", "1.0"))
+GROUPING_SIDE_BY_SIDE_SIZE = float(_cfg_text("grouping", "side_by_side_size", "1.5"))
+GROUPING_ANIMATION_SPAWN_TIME = float(_cfg_text("grouping", "animation_spawn_time", "0.5"))
+GROUPING_ANIMATION_REMOVE_TIME = float(_cfg_text("grouping", "animation_remove_time", "0.5"))
+
+# Renderer
+GROUPING_RENDER_DIR = _cfg_path("grouping", "render_dir", "pipeline/render")
+GROUPING_MANIM_VIDEO_DIR = _cfg_path("grouping", "manim_video_dir", "media/videos/manim_runner/480p15")
+
+# Code block rendering
+INGESTION_CODE_BLOCK_IMAGE_PAD = _cfg_int("ingestion", "code_block_image_pad", 20)
 
 # Gemini configuration
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")

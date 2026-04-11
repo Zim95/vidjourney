@@ -19,6 +19,7 @@ from src.config.constants import (
     INGESTION_CODE_BLOCK_FONT_SIZE,
     INGESTION_CODE_BLOCK_LINE_NUMBERS,
     INGESTION_CODE_BLOCK_STYLE,
+    INGESTION_CODE_BLOCK_IMAGE_PAD,
 )
 
 
@@ -40,7 +41,7 @@ def render_code_block(code_file: Path, output_file: Path) -> None:
         style=INGESTION_CODE_BLOCK_STYLE,
         font_size=INGESTION_CODE_BLOCK_FONT_SIZE,
         line_numbers=INGESTION_CODE_BLOCK_LINE_NUMBERS,
-        image_pad=20,
+        image_pad=INGESTION_CODE_BLOCK_IMAGE_PAD,
     )
 
     image_bytes = highlight(code, lexer, formatter)

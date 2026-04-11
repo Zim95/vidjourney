@@ -133,3 +133,14 @@ def ingest(pdf_path: Path) -> None:
     noise_removed_sections: list[list[tuple[int, PageElement]]] = SectionUtils.reflow_sections(merged_paragraph_sections)
     written_section_files = SectionWriter.write_sections_to_files(noise_removed_sections, pdf_path=pdf_path)
     print(f"Wrote {len(written_section_files)} section files to pipeline/sections")
+
+
+if __name__ == "__main__":
+    # Usage: python -m src.ingestion.ingest_pdf /path/to/file.pdf
+    import sys
+
+    if len(sys.argv) < 2:
+        print("Usage: python -m src.ingestion.ingest_pdf <pdf_path>")
+        sys.exit(1)
+
+    ingest(Path(sys.argv[1]))
