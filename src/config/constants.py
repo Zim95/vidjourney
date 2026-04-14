@@ -98,19 +98,10 @@ ML_CODE_LINE_THRESHOLD = float(_cfg_text("ml", "code_line_threshold", "0.4"))
 
 # Grouping configuration
 GROUPING_SECTIONS_DIR = _cfg_path("grouping", "sections_dir", "pipeline/sections")
-GROUPING_SCENE_GROUPS_DIR = _cfg_path("grouping", "scene_groups_dir", "pipeline/groups/scene_groups")
+GROUPING_CONTENT_GROUPS_DIR = _cfg_path("grouping", "content_groups_dir", "pipeline/groups/content_groups")
 GROUPING_TIMELINES_DIR = _cfg_path("grouping", "timelines_dir", "pipeline/groups/timelines")
 GROUPING_SCENE_FILES_DIR = _cfg_path("grouping", "scene_files_dir", "pipeline/groups/scene_files")
-GROUPING_CHARS_PER_TOKEN = _cfg_int("grouping", "chars_per_token", 4)
 GROUPING_STORYBOARD_DIR = _cfg_path("grouping", "storyboard_dir", "pipeline/groups/storyboard")
-
-# Timeline timing
-GROUPING_WORDS_PER_MINUTE = float(_cfg_text("grouping", "words_per_minute", "150.0"))
-GROUPING_MIN_SCENE_DURATION = float(_cfg_text("grouping", "min_scene_duration", "4.0"))
-GROUPING_SPAWN_DURATION = float(_cfg_text("grouping", "spawn_duration", "0.5"))
-GROUPING_FADE_DURATION = float(_cfg_text("grouping", "fade_duration", "0.5"))
-GROUPING_ARROW_DURATION = float(_cfg_text("grouping", "arrow_duration", "1.5"))
-GROUPING_MAX_ON_SCREEN = _cfg_int("grouping", "max_on_screen", 6)
 
 # Narration
 GROUPING_PIPER_MODEL = _cfg_text("grouping", "piper_model", "en_US-lessac-medium.onnx")
@@ -125,11 +116,7 @@ GROUPING_CANVAS_X_MAX = float(_cfg_text("grouping", "canvas_x_max", "5.0"))
 GROUPING_CANVAS_Y_MIN = float(_cfg_text("grouping", "canvas_y_min", "-3.0"))
 GROUPING_CANVAS_Y_MAX = float(_cfg_text("grouping", "canvas_y_max", "3.0"))
 GROUPING_GRID_MAX_COLS = _cfg_int("grouping", "grid_max_cols", 4)
-GROUPING_LIST_X_POSITION = float(_cfg_text("grouping", "list_x_position", "-3.0"))
-GROUPING_LIST_Y_START = float(_cfg_text("grouping", "list_y_start", "2.5"))
-GROUPING_LIST_Y_STEP = float(_cfg_text("grouping", "list_y_step", "1.2"))
 GROUPING_SHAPE_SIZE = float(_cfg_text("grouping", "shape_size", "1.0"))
-GROUPING_SIDE_BY_SIDE_SIZE = float(_cfg_text("grouping", "side_by_side_size", "1.5"))
 GROUPING_ANIMATION_SPAWN_TIME = float(_cfg_text("grouping", "animation_spawn_time", "0.5"))
 GROUPING_ANIMATION_REMOVE_TIME = float(_cfg_text("grouping", "animation_remove_time", "0.5"))
 
@@ -140,15 +127,14 @@ GROUPING_MANIM_VIDEO_DIR = _cfg_path("grouping", "manim_video_dir", "media/video
 # Code block rendering
 INGESTION_CODE_BLOCK_IMAGE_PAD = _cfg_int("ingestion", "code_block_image_pad", 20)
 
-# Gemini configuration
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-GEMINI_MODEL = _cfg_text("gemini", "model", "gemini-2.0-flash-lite")
-GEMINI_MAX_TOKENS_PER_MINUTE = _cfg_int("gemini", "max_tokens_per_minute", 250000)
-GEMINI_MAX_REQUESTS_PER_MINUTE = _cfg_int("gemini", "max_requests_per_minute", 10)
-GEMINI_MAX_REQUESTS_PER_DAY = _cfg_int("gemini", "max_requests_per_day", 500)
-GEMINI_MAX_RETRIES = _cfg_int("gemini", "max_retries", 3)
-
 # Ollama LLM configuration
 OLLAMA_BASE_URL = _cfg_text("ollama", "base_url", "http://localhost:11434")
 OLLAMA_CHAT_MODEL = _cfg_text("ollama", "chat_model", "llama3.1:8b")
 OLLAMA_MAX_RETRIES = _cfg_int("ollama", "max_retries", 3)
+
+# Icons
+ICONS_API_SEARCH_URL = _cfg_text("icons", "api_search_url", "https://api.iconify.design/search")
+ICONS_API_DOWNLOAD_URL = _cfg_text("icons", "api_download_url", "https://api.iconify.design")
+ICONS_DIR = _cfg_path("icons", "icons_dir", "pipeline/resources/icons")
+ICONS_PREFERRED_COLLECTIONS = _cfg_text("icons", "preferred_collections", "simple-icons,logos,mdi,material-symbols").split(",")
+ICONS_MAX_RETRIES = _cfg_int("icons", "max_retries", 2)

@@ -7,7 +7,7 @@ A tool to help me study. Converts PDFs to generated Videos.
 
 - Python 3.11+
 - [uv](https://docs.astral.sh/uv/) for package management
-- [Ollama](https://ollama.com) with a model configured in `configuration.cfg` (default: `gemma3:4b`)
+- [Ollama](https://ollama.com) with models configured in `configuration.cfg` (default: `gemma4:e2b` for LLM, `nomic-embed-text` for embeddings)
 - [Piper TTS](https://github.com/rhasspy/piper) voice model at `~/.local/share/piper-voices/en_US-lessac-medium.onnx`
 - [ffmpeg](https://ffmpeg.org/) for audio/video merge
 - [Manim Community](https://www.manim.community/) for rendering
@@ -18,13 +18,11 @@ A tool to help me study. Converts PDFs to generated Videos.
 ```
 PDF → Ingestion → Sections
                     ↓ (watchdog)
-                  Storyboard (LLM)
+                  Content Grouping (LLM)
                     ↓ (watchdog)
-                  Timelines
-                    ↓ (watchdog)          ↓ (watchdog)
-                  Compile → Render      Narration (TTS)
-                    ↓                     ↓
-                  Manim Video           Audio (.wav)
+                  Compile → Render
+                    ↓                     ↓ (watchdog)
+                  Manim Video           Narration (TTS)
                     ↓                     ↓
                          Assemble (ffmpeg)
                               ↓
@@ -38,7 +36,7 @@ Run everything with a single command. Starts all watchers, runs ingestion, and t
 
 ```bash
 uv sync
-python main.py /path/to/your.pdf --backend ollama
+python main.py /path/to/your.pdf
 ```
 
 Press `Ctrl+C` to stop when processing is complete.
@@ -59,22 +57,29 @@ Reads a PDF, detects elements (headings, paragraphs, code blocks, images, tables
 python -m src.ingestion.ingest_pdf /path/to/your.pdf
 ```
 
-### 2. Scene Grouping
+### 2. Content Grouping
 
-Sends each section to an LLM to generate a storyboard (scene types: QUOTE, SIDE_BY_SIDE, BULLET_LIST, etc.), then deterministically generates per-scene timelines.
+Groups section elements into content sets using an LLM (Ollama). Associates paragraphs with their related resources (images, code blocks, tables) based on semantic understanding.
 
 - Input: `pipeline/sections/section_*.txt`
-- Output: `pipeline/groups/storyboard/section_*.txt` + `pipeline/groups/timelines/timeline_*_scene_*.txt`
+- Output: `pipeline/groups/content_groups/section_*.txt`
 
 ```bash
 # Single section
-python -m src.scene_grouping.group pipeline/sections/section_2.txt --backend ollama
+python -m src.scene_grouping.group pipeline/sections/section_3.txt
 
-# All pending sections
-python -m src.scene_grouping.group --all --backend ollama
+# All pending sections (concurrent)
+python -m src.scene_grouping.group --all
 
 # Watch mode
-python -m src.scene_grouping.group --watch --backend ollama
+python -m src.scene_grouping.group --watch
+```
+
+You can also run the grouper directly to inspect associations:
+
+```bash
+python -m src.scene_grouping.llm_grouper pipeline/sections/section_3.txt
+python -m src.scene_grouping.llm_grouper --all
 ```
 
 ### 3. Compile
@@ -154,8 +159,8 @@ python -m src.assembler.assemble --watch
 Start all watchers in separate terminals for full event-driven processing.
 
 ```bash
-# Terminal 1: Scene grouping (watches sections/)
-python -m src.scene_grouping.group --watch --backend ollama
+# Terminal 1: Content grouping (watches sections/)
+python -m src.scene_grouping.group --watch
 
 # Terminal 2: Compiler (watches timelines/)
 python -m src.compiler.compile --watch
@@ -247,7 +252,6 @@ The more diverse your training data, the better the model generalizes.
 All settings are in `configuration.cfg`. Key sections:
 
 - `[ingestion]` — code detection thresholds, code block rendering style
-- `[grouping]` — storyboard/timeline dirs, timing (spawn, fade, arrow duration, max entities on screen)
+- `[grouping]` — content groups dir, canvas layout, compiler settings
 - `[ollama]` — LLM model and endpoint
-- `[gemini]` — Gemini API config (optional alternative backend)
 - `[ml]` — ML model training, embedding config, inference threshold
