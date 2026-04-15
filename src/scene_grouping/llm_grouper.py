@@ -21,9 +21,10 @@ from pathlib import Path
 
 import requests
 
-from src.utils import logger
+from src.utils import logger, timer
 from src.config.constants import (
     GROUPING_SECTIONS_DIR,
+    GROUPING_CONTENT_GROUPS_DIR,
     OLLAMA_BASE_URL,
     OLLAMA_CHAT_MODEL,
     OLLAMA_MAX_RETRIES,
@@ -503,6 +504,9 @@ def group_elements(elements: list[Element]) -> list[ContentGroup]:
 
 # --- File I/O ---
 
+CONTENT_GROUPS_DIR = GROUPING_CONTENT_GROUPS_DIR
+
+
 def group_section_file(section_file: Path) -> list[ContentGroup]:
     """Read a section file and return content groups."""
     content = section_file.read_text(encoding="utf-8", errors="replace")
@@ -510,8 +514,99 @@ def group_section_file(section_file: Path) -> list[ContentGroup]:
     return group_elements(elements)
 
 
+@timer(label="Group section")
+def process_section(section_file: Path) -> Path:
+    """Group elements for a single section and persist to disk."""
+    CONTENT_GROUPS_DIR.mkdir(parents=True, exist_ok=True)
+    groups_file = CONTENT_GROUPS_DIR / section_file.name
+
+    if groups_file.exists():
+        logger.info(f"Already grouped: {groups_file.name}")
+        return groups_file
+
+    logger.info(f"Grouping elements for {section_file.name}")
+    groups = group_section_file(section_file)
+    groups_file.write_text(serialize_groups(groups), encoding="utf-8")
+    logger.info(f"Wrote content groups: {groups_file.name} ({len(groups)} groups)")
+    return groups_file
+
+
+# --- Watchdog ---
+
+def start_watcher(executor=None) -> "Observer":
+    from watchdog.observers import Observer
+    from watchdog.events import FileSystemEventHandler
+    from concurrent.futures import ThreadPoolExecutor
+
+    SECTIONS_DIR.mkdir(parents=True, exist_ok=True)
+    CONTENT_GROUPS_DIR.mkdir(parents=True, exist_ok=True)
+
+    _executor = executor or ThreadPoolExecutor()
+
+    class SectionHandler(FileSystemEventHandler):
+        def on_created(self, event):
+            if event.is_directory:
+                return
+            filepath = Path(event.src_path)
+            if filepath.suffix == ".txt" and filepath.stem.startswith("section_"):
+                if not (CONTENT_GROUPS_DIR / filepath.name).exists():
+                    logger.info(f"[watchdog] New section detected: {filepath.name}")
+                    _executor.submit(_safe_process, filepath)
+
+    def _safe_process(filepath: Path):
+        try:
+            process_section(filepath)
+        except Exception as e:
+            logger.error(f"Grouping failed: {filepath.name} — {e}")
+
+    handler = SectionHandler()
+    observer = Observer()
+    observer.schedule(handler, str(SECTIONS_DIR), recursive=False)
+    observer.start()
+    return observer
+
+
+def stop_watcher(observer) -> None:
+    observer.stop()
+    observer.join()
+
+
+# --- Batch processing ---
+
+def process_all(executor: "ThreadPoolExecutor") -> None:
+    """Process all pending sections concurrently using the shared executor."""
+    from concurrent.futures import as_completed
+
+    CONTENT_GROUPS_DIR.mkdir(parents=True, exist_ok=True)
+
+    pending = [
+        f for f in sorted(SECTIONS_DIR.glob("section_*.txt"))
+        if not (CONTENT_GROUPS_DIR / f.name).exists()
+    ]
+    if not pending:
+        logger.info("All sections already grouped. Nothing to do.")
+        return
+
+    logger.info(f"Found {len(pending)} pending sections. Processing concurrently...")
+
+    futures = {executor.submit(process_section, f): f for f in pending}
+    succeeded = failed = 0
+    for future in as_completed(futures):
+        section_file = futures[future]
+        try:
+            future.result()
+            succeeded += 1
+            logger.info(f"[{succeeded + failed}/{len(pending)}] Done: {section_file.name}")
+        except Exception as e:
+            failed += 1
+            logger.error(f"[{succeeded + failed}/{len(pending)}] FAILED: {section_file.name} — {e}")
+
+    logger.info(f"Completed: {succeeded} succeeded, {failed} failed out of {len(pending)}")
+
+
+# --- CLI ---
+
 def _print_groups(groups: list[ContentGroup]) -> None:
-    """Pretty-print content groups for debugging."""
     for i, group in enumerate(groups):
         print(f"\n{'='*60}")
         print(f"Group {i}: kind={group.kind}")
@@ -528,21 +623,33 @@ def _print_groups(groups: list[ContentGroup]) -> None:
 
 if __name__ == "__main__":
     import sys
+    import time
     import argparse
+    from concurrent.futures import ThreadPoolExecutor
+
+    from src.config.constants import PIPELINE_THREAD_WORKERS
 
     parser = argparse.ArgumentParser(description="LLM-based element grouper")
     parser.add_argument("section_file", type=str, nargs="?", help="Path to a section file")
-    parser.add_argument("--all", action="store_true", help="Process all sections")
+    parser.add_argument("--all", action="store_true", help="Process all pending sections (concurrent)")
+    parser.add_argument("--watch", action="store_true", help="Watch sections dir for new files")
     args = parser.parse_args()
 
-    if args.all:
-        SECTIONS_DIR.mkdir(parents=True, exist_ok=True)
-        for f in sorted(SECTIONS_DIR.glob("section_*.txt")):
-            print(f"\n{'#'*60}")
-            print(f"# {f.name}")
-            print(f"{'#'*60}")
-            groups = group_section_file(f)
-            _print_groups(groups)
+    _executor = ThreadPoolExecutor(max_workers=PIPELINE_THREAD_WORKERS)
+
+    if args.watch:
+        logger.info(f"Watching {SECTIONS_DIR} for new sections...")
+        observer = start_watcher(executor=_executor)
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            stop_watcher(observer)
+            _executor.shutdown(wait=True)
+            logger.info("Stopped.")
+    elif args.all:
+        process_all(executor=_executor)
+        _executor.shutdown(wait=True)
     elif args.section_file:
         path = Path(args.section_file)
         if not path.exists():
