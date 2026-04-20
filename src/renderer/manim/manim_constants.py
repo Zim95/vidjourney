@@ -27,7 +27,15 @@ from .objects.arrow_objects import (
     UnidirectionalSolidArrow,
 )
 from .objects.image_objects import ImageObject
-from .objects.shape_objects import CircleShape, RectangleShape, ShapeObject, SquareShape
+from .objects.shape_objects import (
+    AutoRectangleShape,
+    CircleShape,
+    HeadingShape,
+    QuoteShape,
+    RectangleShape,
+    ShapeObject,
+    SquareShape,
+)
 from .movements import BentMovement, CurveMovement, MovementBase, StraightMovement
 
 DEFAULT_SHAPE_OBJECT: Type[ShapeObject] = SquareShape
@@ -37,6 +45,9 @@ SHAPE_OBJECT_MAP: dict[str, Type[ShapeObject]] = {
     "circle": CircleShape,
     "rectangle": RectangleShape,
     "square": SquareShape,
+    "auto_rect": AutoRectangleShape,
+    "text_heading": HeadingShape,
+    "text_quote": QuoteShape,
 }
 
 ARROW_OBJECT_MAP: dict[str, Type[ArrowObject]] = {

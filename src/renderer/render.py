@@ -12,7 +12,7 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
 from src.utils import logger, timer
-from src.config.constants import GROUPING_RENDER_DIR, GROUPING_MANIM_VIDEO_DIR
+from src.config.constants import GROUPING_RENDER_DIR, GROUPING_MANIM_VIDEO_DIR, MANIM_QUALITY
 from concurrent.futures import ThreadPoolExecutor
 
 
@@ -29,7 +29,7 @@ def render_manim(render_file: Path, scene_name: str) -> Path:
 
     subprocess.run(
         [
-            "python", "-m", "manim", "-ql",
+            "python", "-m", "manim", f"-{MANIM_QUALITY}",
             "src/renderer/manim/manim_runner.py", "ManimScene",
             "-o", scene_name,
         ],

@@ -175,7 +175,7 @@ def _compile_events(events: list[dict]) -> str:
             else:
                 elements.extend([
                     f'ELEMENT {ident} TYPE shape',
-                    f'    SHAPE rectangle',
+                    f'    SHAPE auto_rect',
                     f'    TEXT "{_escape_dsl_string(target)}"',
                     f'    POSITION ({x},{y})',
                     f'    SIZE {SHAPE_SIZE}',
@@ -249,13 +249,60 @@ def _compile_events(events: list[dict]) -> str:
 
         elif event["action"] == "SHOW_RESOURCE":
             ident = "resource"
-            elements.extend([
+            # target may include caption: "path|||caption"
+            raw_target = event["target"]
+            if "|||" in raw_target:
+                path, caption = raw_target.split("|||", 1)
+            else:
+                path, caption = raw_target, ""
+            element_lines = [
                 f'ELEMENT {ident} TYPE image',
-                f'    URL "{_escape_dsl_string(event["target"])}"',
-                f'    POSITION (0.0,0.5)',
-                f'    SIZE 4.0',
+                f'    URL "{_escape_dsl_string(path)}"',
+                f'    POSITION (0.0,0.0)',
+                f'    SIZE 8.0',
+            ]
+            if caption:
+                element_lines.append(f'    TEXT "{_escape_dsl_string(caption)}"')
+            element_lines.extend([
                 f'    SPAWN image_popup {SPAWN_TIME}',
                 f'    REMOVE image_popout {REMOVE_TIME}',
+                f'END',
+                f'',
+            ])
+            elements.extend(element_lines)
+            sequence.append(f'    SPAWN {ident}')
+            ident_by_index.append(ident)
+            prev_time = event["time"]
+
+        elif event["action"] == "SHOW_HEADING":
+            heading_idx = len([i for i in ident_by_index if i.startswith("heading_")])
+            ident = f"heading_{heading_idx}"
+            elements.extend([
+                f'ELEMENT {ident} TYPE shape',
+                f'    SHAPE text_heading',
+                f'    TEXT "{_escape_dsl_string(event["target"])}"',
+                f'    POSITION (0.0,0.0)',
+                f'    SIZE 10.0',
+                f'    SPAWN shape_popup {SPAWN_TIME}',
+                f'    REMOVE shape_popout {REMOVE_TIME}',
+                f'END',
+                f'',
+            ])
+            sequence.append(f'    SPAWN {ident}')
+            ident_by_index.append(ident)
+            prev_time = event["time"]
+
+        elif event["action"] == "SHOW_QUOTE":
+            quote_idx = len([i for i in ident_by_index if i.startswith("quote_")])
+            ident = f"quote_{quote_idx}"
+            elements.extend([
+                f'ELEMENT {ident} TYPE shape',
+                f'    SHAPE text_quote',
+                f'    TEXT "{_escape_dsl_string(event["target"])}"',
+                f'    POSITION (0.0,0.0)',
+                f'    SIZE 10.0',
+                f'    SPAWN shape_popup {SPAWN_TIME}',
+                f'    REMOVE shape_popout {REMOVE_TIME}',
                 f'END',
                 f'',
             ])
@@ -295,7 +342,12 @@ def _compile_events(events: list[dict]) -> str:
             prev_time = event["time"]
 
         elif event["action"] == "HOLD":
-            # WAIT handled by the gap calculation above
+            # Emit an explicit WAIT for the hold duration so Manim actually renders
+            # frames for this scene (blank screen). Gap-based WAITs only fire between
+            # events, so a HOLD-only scene would otherwise produce an empty sequence.
+            hold_duration = round(float(event["duration"]), 1)
+            if hold_duration > 0:
+                sequence.append(f'    WAIT {hold_duration}')
             prev_time = event["time"] + event["duration"]
 
     if not sequence:

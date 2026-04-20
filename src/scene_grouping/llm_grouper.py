@@ -54,17 +54,24 @@ Important:
 - If a PARAGRAPH does not reference any resource, give it an empty list.
 - Include ALL PARAGRAPH indices in your output.
 
+Additionally, flag paragraphs that contain an inline numbered or bulleted list of 2+ items
+(e.g. "... needed functionality. For example, many applications need to: 1. First item. 2. Second item. 3. Third item.").
+Do NOT flag prose that merely mentions numbers (e.g. "In the 1970s...").
+Return these as a list of paragraph indices under "lists".
+
+Output valid JSON only:
+{{"associations": {{"<paragraph_index>": [<resource_indices>], ...}}, "lists": [<paragraph_index>, ...]}}
+
 Example input:
 [0] HEADING Introduction
 [1] PARAGRAPH This chapter introduces key concepts. Consider the following diagram:
 [2] IMAGE path/to/diagram.png
 [3] CAPTION Figure 1. System overview.
 [4] PARAGRAPH The system has three main components.
+[5] PARAGRAPH The next four chapters go through key topics: 1. Chapter 1 introduces terminology. 2. Chapter 2 compares data models. 3. Chapter 3 covers storage engines.
 
 Example output:
-{{"associations": {{"1": [2], "4": []}}}}
-
-Explanation: Paragraph 1 says "Consider the following diagram" which references the IMAGE at index 2. Paragraph 4 does not reference any resource.
+{{"associations": {{"1": [2], "4": [], "5": []}}, "lists": [5]}}
 
 Now analyze these elements:
 {numbered_elements}"""
@@ -211,11 +218,7 @@ def _build_prompt(elements: list[Element]) -> str:
     """Build the LLM prompt with numbered elements."""
     lines = []
     for i, el in enumerate(elements):
-        text = el.text
-        # For long text, keep start and end (references often appear at the end)
-        if len(text) > 300:
-            text = text[:150] + " [...] " + text[-150:]
-        lines.append(f"[{i}] {el.kind} {text}")
+        lines.append(f"[{i}] {el.kind} {el.text}")
     numbered = "\n".join(lines)
     return PROMPT.format(numbered_elements=numbered)
 
@@ -231,7 +234,7 @@ def _call_ollama(prompt: str) -> str:
             ],
             "stream": False,
             "format": "json",
-            "options": {"num_ctx": 8192, "temperature": 0},
+            "options": {"num_ctx": 16384, "temperature": 0},
         },
         timeout=300,
     )
@@ -239,29 +242,92 @@ def _call_ollama(prompt: str) -> str:
     return response.json()["message"]["content"]
 
 
-def _parse_llm_response(response_text: str, elements: list[Element]) -> dict[int, list[int]]:
-    """Parse LLM JSON response into {paragraph_index: [resource_indices]}."""
+def _parse_llm_response(
+    response_text: str,
+    elements: list[Element],
+) -> tuple[dict[int, list[int]], set[int]]:
+    """Parse LLM JSON response into (associations, list_paragraph_indices).
+
+    associations: {paragraph_index: [resource_indices]}
+    list_paragraph_indices: {paragraph_index, ...} — paragraphs that contain embedded lists
+    """
     data = json.loads(response_text)
 
-    associations = data.get("associations", data)
+    associations_raw = data.get("associations", {})
+    if not isinstance(associations_raw, dict):
+        associations_raw = {}
 
-    result: dict[int, list[int]] = {}
-    for key, value in associations.items():
-        para_idx = int(key)
-        # Validate: must be a PARAGRAPH index
+    associations: dict[int, list[int]] = {}
+    for key, value in associations_raw.items():
+        try:
+            para_idx = int(key)
+        except (TypeError, ValueError):
+            continue
         if para_idx < 0 or para_idx >= len(elements):
             continue
         if elements[para_idx].kind != "PARAGRAPH":
             continue
-        # Validate: resource indices must be valid RESOURCE_KINDS
         resource_indices = []
-        for r_idx in value:
-            r_idx = int(r_idx)
-            if 0 <= r_idx < len(elements) and elements[r_idx].kind in RESOURCE_KINDS:
-                resource_indices.append(r_idx)
-        result[para_idx] = resource_indices
+        if isinstance(value, list):
+            for r_idx in value:
+                try:
+                    r_idx_int = int(r_idx)
+                except (TypeError, ValueError):
+                    continue
+                if 0 <= r_idx_int < len(elements) and elements[r_idx_int].kind in RESOURCE_KINDS:
+                    resource_indices.append(r_idx_int)
+        associations[para_idx] = resource_indices
 
-    return result
+    lists_raw = data.get("lists", [])
+    list_indices: set[int] = set()
+    if isinstance(lists_raw, list):
+        for idx in lists_raw:
+            try:
+                p = int(idx)
+            except (TypeError, ValueError):
+                continue
+            if 0 <= p < len(elements) and elements[p].kind == "PARAGRAPH":
+                list_indices.add(p)
+
+    return associations, list_indices
+
+
+# --- Embedded list splitting (regex) ---
+
+# Matches numbered markers at start of segment: "1. ", "2) ", "(3) ", "a. ", etc.
+_LIST_MARKER_RE = re.compile(
+    r"(?:^|(?<=\s))"                    # start or after whitespace
+    r"(?:\(?(?:\d{1,2}|[a-z]|[ivx]{1,4}))\)"  # "1)" / "(1)" / "a)" / "iv)"
+    r"|"
+    r"(?:^|(?<=\s))"
+    r"(?:\(?(?:\d{1,2}|[a-z]|[ivx]{1,4}))\.\s"  # "1. " / "a. " / "iv. "
+    r"|"
+    r"(?:^|(?<=\s))[•·*]\s"                     # "• " / "· " / "* "
+)
+
+
+def _split_embedded_list(paragraph_text: str) -> tuple[str, list[str]] | None:
+    """Split a paragraph into (intro, [items]) if it contains an inline list.
+
+    Returns None if the text doesn't look like a list (fewer than 2 markers found).
+    """
+    # Find all marker positions
+    matches = list(_LIST_MARKER_RE.finditer(paragraph_text))
+    if len(matches) < 2:
+        return None
+
+    intro = paragraph_text[: matches[0].start()].strip()
+    items: list[str] = []
+    for i, m in enumerate(matches):
+        start = m.end()
+        end = matches[i + 1].start() if i + 1 < len(matches) else len(paragraph_text)
+        item = paragraph_text[start:end].strip()
+        if item:
+            items.append(item)
+
+    if len(items) < 2:
+        return None
+    return intro, items
 
 
 # --- Structural fallback ---
@@ -335,6 +401,50 @@ def _structural_fallback(elements: list[Element]) -> list[ContentGroup]:
 
 
 # --- LLM-based grouping ---
+
+def _apply_embedded_lists(
+    elements: list[Element],
+    associations: dict[int, list[int]],
+    list_indices: set[int],
+) -> tuple[list[Element], dict[int, list[int]]]:
+    """Rewrite elements by splitting paragraphs flagged as containing lists.
+
+    For each flagged paragraph, apply the regex splitter. If it finds items:
+    - Replace its text with the intro
+    - Insert LIST_ITEM elements immediately after it
+    - Remap all indices in associations to account for the insertions
+    """
+    if not list_indices:
+        return elements, associations
+
+    new_elements: list[Element] = []
+    index_map: dict[int, int] = {}
+
+    for old_idx, el in enumerate(elements):
+        index_map[old_idx] = len(new_elements)
+
+        if el.kind == "PARAGRAPH" and old_idx in list_indices:
+            split = _split_embedded_list(el.text)
+            if split is not None:
+                intro, items = split
+                new_elements.append(Element(kind="PARAGRAPH", text=intro or el.text))
+                for item_text in items:
+                    new_elements.append(Element(kind="LIST_ITEM", text=item_text))
+                logger.info(f"Split paragraph {old_idx} into intro + {len(items)} list items")
+                continue
+
+        new_elements.append(el)
+
+    new_associations: dict[int, list[int]] = {}
+    for old_para_idx, resource_indices in associations.items():
+        new_para_idx = index_map.get(old_para_idx)
+        if new_para_idx is None:
+            continue
+        new_resources = [index_map[r] for r in resource_indices if r in index_map]
+        new_associations[new_para_idx] = new_resources
+
+    return new_elements, new_associations
+
 
 def _assemble_groups(elements: list[Element], associations: dict[int, list[int]]) -> list[ContentGroup]:
     """Build ContentGroup list from elements and LLM-provided associations."""
@@ -477,24 +587,30 @@ def _merge_adjacent_resources(groups: list[ContentGroup]) -> list[ContentGroup]:
 
 def group_elements(elements: list[Element]) -> list[ContentGroup]:
     """Group elements using LLM associations with structural fallback."""
-    # Check if there are any paragraphs and resources to associate
     has_paragraphs = any(e.kind == "PARAGRAPH" for e in elements)
     has_resources = any(e.kind in RESOURCE_KINDS for e in elements)
 
-    if not has_paragraphs or not has_resources:
-        # No associations needed — use structural grouping directly
-        logger.info("No paragraph-resource associations needed, using structural grouping")
+    # If nothing to ask the LLM about, use structural grouping directly.
+    # (Embedded list detection still requires the LLM — but only when there are paragraphs.)
+    if not has_paragraphs:
+        logger.info("No paragraphs, using structural grouping")
         return _structural_fallback(elements)
 
-    # Try LLM-based grouping
+    # Try LLM-based grouping (associations + embedded-list detection)
     for attempt in range(1, OLLAMA_MAX_RETRIES + 1):
         try:
             prompt = _build_prompt(elements)
             response_text = _call_ollama(prompt)
-            associations = _parse_llm_response(response_text, elements)
-            logger.info(f"LLM grouped {len(associations)} paragraphs")
-            groups = _assemble_groups(elements, associations)
-            return _merge_adjacent_resources(groups)
+            associations, list_indices = _parse_llm_response(response_text, elements)
+            logger.info(
+                f"LLM grouped {len(associations)} paragraphs, "
+                f"flagged {len(list_indices)} as embedded lists"
+            )
+            new_elements, new_associations = _apply_embedded_lists(elements, associations, list_indices)
+            groups = _assemble_groups(new_elements, new_associations)
+            if has_resources:
+                groups = _merge_adjacent_resources(groups)
+            return groups
         except (requests.RequestException, json.JSONDecodeError, KeyError, ValueError) as exc:
             logger.warning(f"LLM grouping attempt {attempt}/{OLLAMA_MAX_RETRIES} failed: {exc}")
 

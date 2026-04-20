@@ -188,7 +188,7 @@ def _build_heading_scenes(group: ContentGroup, scene_id: int) -> list[Scene]:
         voiceover=text,
         duration=dur,
         events=[
-            TimelineEvent(time=0.0, action="SHOW_TEXT", target=text, duration=round(dur - FADE_DURATION, 1)),
+            TimelineEvent(time=0.0, action="SHOW_HEADING", target=text, duration=round(dur - FADE_DURATION, 1)),
             TimelineEvent(time=round(dur - FADE_DURATION, 1), action="FADE", target="*", duration=FADE_DURATION),
         ],
     )]
@@ -218,17 +218,21 @@ def _build_paragraph_resource_scenes(group: ContentGroup, scene_id: int) -> list
             logger.warning("LLM timeline failed, using structural fallback")
             segments = _structural_resource_fallback(group.anchor.text, resources)
 
+    cap_map = group.caption_for_resource
+
     scenes = []
     for seg in segments:
         text = seg["text"]
         res = resources[seg["resource_index"]]
+        caption = cap_map.get(res.text) or ""
+        target = f"{res.text}|||{caption}" if caption else res.text
         dur = _duration(text)
         scenes.append(Scene(
             scene_id=scene_id,
             voiceover=text,
             duration=dur,
             events=[
-                TimelineEvent(time=0.0, action="SHOW_RESOURCE", target=res.text, duration=SPAWN_DURATION),
+                TimelineEvent(time=0.0, action="SHOW_RESOURCE", target=target, duration=SPAWN_DURATION),
                 TimelineEvent(time=round(dur - FADE_DURATION, 1), action="FADE", target="*", duration=FADE_DURATION),
             ],
         ))
@@ -293,23 +297,12 @@ def _events_for_entity_result(result: EntityResult, dur: float) -> list[Timeline
     fade_at = round(dur - FADE_DURATION, 1)
 
     if result.type == "quote":
-        events = []
-        # Show the quote text immediately
-        attribution_at = round(dur * 0.7, 1) if result.attribution else fade_at
-        events.append(TimelineEvent(
-            time=0.0,
-            action="SHOW_TEXT",
-            target=result.text,
-            duration=attribution_at,
-        ))
-        if result.attribution:
-            events.append(TimelineEvent(
-                time=attribution_at,
-                action="SHOW_TEXT",
-                target=f"— {result.attribution}",
-                duration=round(fade_at - attribution_at, 1),
-            ))
-        events.append(TimelineEvent(time=fade_at, action="FADE", target="*", duration=FADE_DURATION))
+        # Attribution is narrated via voiceover — no need to show separately.
+        # Including attribution in the quote text would require separate positioning.
+        events = [
+            TimelineEvent(time=0.0, action="SHOW_QUOTE", target=result.text, duration=fade_at),
+            TimelineEvent(time=fade_at, action="FADE", target="*", duration=FADE_DURATION),
+        ]
         return events
 
     if result.type == "entities":
@@ -346,12 +339,13 @@ def _build_standalone_resource_scenes(group: ContentGroup, scene_id: int) -> lis
     captions = group.captions
     caption = captions[0].text if captions else ""
     dur = _duration(caption) if caption else MIN_DURATION
+    target = f"{resource.text}|||{caption}" if caption else resource.text
     return [Scene(
         scene_id=scene_id,
         voiceover=caption,
         duration=dur,
         events=[
-            TimelineEvent(time=0.0, action="SHOW_RESOURCE", target=resource.text, duration=SPAWN_DURATION),
+            TimelineEvent(time=0.0, action="SHOW_RESOURCE", target=target, duration=SPAWN_DURATION),
             TimelineEvent(time=round(dur - FADE_DURATION, 1), action="FADE", target="*", duration=FADE_DURATION),
         ],
     )]
@@ -390,7 +384,12 @@ def build_timeline(groups: list[ContentGroup]) -> list[Scene]:
             else:
                 new_scenes = _build_paragraph_blank_scenes(group, scene_id)
         elif group.kind in ("image", "code_block", "table"):
-            new_scenes = _build_standalone_resource_scenes(group, scene_id)
+            # Dangling resources (no paragraph context) are skipped — they produce
+            # either silent holds or narrate-the-caption scenes that lack the
+            # surrounding text needed to understand what's shown. The paragraph-
+            # anchored scenes carry the educational content.
+            logger.info(f"Skipping dangling {group.kind} group: {group.anchor.text[:60]}")
+            continue
         elif group.kind == "list":
             new_scenes = _build_standalone_list_scenes(group, scene_id)
         else:

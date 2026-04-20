@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from manim import Circle, Mobject, Rectangle, Square, Text, VGroup, WHITE
+from manim import BOLD, Circle, ITALIC, Mobject, Rectangle, Square, Text, VGroup, WHITE
 
 from .object_base import ObjectBase
 
@@ -105,3 +105,77 @@ class RectangleShape(ShapeObject):
         else:
             rectangle.set_fill(self.fill_color, opacity=1)
         return self._move_to_position(self._apply_text(rectangle))
+
+
+@dataclass
+class HeadingShape(ShapeObject):
+    """Bold white text, no background. Size = target width in manim units."""
+    target_width: float = 10.0  # ~70% of the 14.22 frame width
+
+    def set_size(self, size: float) -> HeadingShape:
+        self.target_width = size
+        return self
+
+    def draw(self) -> Mobject:
+        text = Text(self.text or "", color=self.text_color, weight=BOLD, font="Arial")
+        if text.width > 0:
+            text.scale_to_fit_width(self.target_width)
+        return self._move_to_position(text)
+
+
+@dataclass
+class QuoteShape(ShapeObject):
+    """Italic white text wrapped in quotes, no background."""
+    target_width: float = 10.0
+
+    def set_size(self, size: float) -> QuoteShape:
+        self.target_width = size
+        return self
+
+    def draw(self) -> Mobject:
+        quoted = f'"{self.text}"' if self.text else ""
+        text = Text(quoted, color=self.text_color, slant=ITALIC, font="Arial")
+        if text.width > 0:
+            text.scale_to_fit_width(self.target_width)
+        return self._move_to_position(text)
+
+
+@dataclass
+class AutoRectangleShape(ShapeObject):
+    """Rectangle that auto-sizes its width to fit the text inside, with padding."""
+    min_width: float = 1.5
+    text_height: float = 0.5
+    padding_x: float = 0.5
+    padding_y: float = 0.3
+
+    def set_size(self, size: float) -> AutoRectangleShape:
+        self.min_width = size
+        return self
+
+    def draw(self) -> Mobject:
+        if self.text:
+            label = Text(self.text, color=self.text_color, font="Arial")
+            label.scale_to_fit_height(self.text_height)
+        else:
+            label = None
+
+        if label is not None:
+            width = max(label.width + self.padding_x * 2, self.min_width)
+            height = label.height + self.padding_y * 2
+        else:
+            width = self.min_width
+            height = self.text_height + self.padding_y * 2
+
+        rectangle = Rectangle(width=width, height=height, stroke_color=self.border_color)
+        if self.fill_color is None:
+            rectangle.set_fill(opacity=0)
+        else:
+            rectangle.set_fill(self.fill_color, opacity=1)
+
+        if label is not None:
+            label.move_to(rectangle.get_center())
+            result = VGroup(rectangle, label)
+        else:
+            result = rectangle
+
+        return self._move_to_position(result)

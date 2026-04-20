@@ -10,7 +10,7 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from concurrent.futures import ThreadPoolExecutor
 
-from src.assembler.ffmpeg_merge import merge_audio_video
+from src.assembler.ffmpeg_merge import merge_audio_video, concat_videos
 from src.utils import logger, timer
 from src.config.constants import (
     GROUPING_NARRATION_DIR,
@@ -99,8 +99,15 @@ def stop_watcher(observer: Observer) -> None:
 
 # --- Batch processing ---
 
+def _scene_sort_key(scene_name: str) -> int:
+    """Extract scene number from 'timeline_section_N_scene_M' for ordering."""
+    import re
+    m = re.search(r"_scene_(\d+)$", scene_name)
+    return int(m.group(1)) if m else 0
+
+
 def assemble_section(section_name: str) -> list[Path]:
-    """Assemble all scenes for a section."""
+    """Assemble all scenes for a section into per-scene narrated videos."""
     wav_files = sorted(NARRATION_DIR.glob(f"timeline_{section_name}_scene_*.wav"))
     if not wav_files:
         print(f"No narration files found for {section_name}")
@@ -119,10 +126,31 @@ def assemble_section(section_name: str) -> list[Path]:
     return outputs
 
 
+@timer(label="Concat section")
+def concat_section(section_name: str) -> Path | None:
+    """Concatenate all per-scene videos for a section into a single video."""
+    scene_videos = sorted(
+        OUTPUT_DIR.glob(f"timeline_{section_name}_scene_*.mp4"),
+        key=lambda p: _scene_sort_key(p.stem),
+    )
+    if not scene_videos:
+        logger.warning(f"No scene videos found for {section_name}")
+        return None
+
+    output_file = OUTPUT_DIR / f"{section_name}.mp4"
+    if output_file.exists():
+        logger.info(f"Already concatenated: {output_file.name}")
+        return output_file
+
+    logger.info(f"Concatenating {len(scene_videos)} scenes for {section_name}...")
+    return concat_videos(scene_videos, section_name)
+
+
 if __name__ == "__main__":
     # Usage:
-    #   python -m src.assembler.assemble timeline_section_2_scene_3
-    #   python -m src.assembler.assemble section_2
+    #   python -m src.assembler.assemble timeline_section_2_scene_3       (single scene)
+    #   python -m src.assembler.assemble section_2                        (all scenes for section)
+    #   python -m src.assembler.assemble section_2 --concat               (assemble + concat into section video)
     #   python -m src.assembler.assemble --watch
     import sys
     import time
@@ -134,6 +162,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Assemble narration + video")
     parser.add_argument("target", type=str, nargs="?", help="Scene name or section name")
     parser.add_argument("--watch", action="store_true", help="Watch narration dir for new files")
+    parser.add_argument("--concat", action="store_true", help="Concatenate scene videos into one section video")
     args = parser.parse_args()
 
     _executor = ThreadPoolExecutor(max_workers=PIPELINE_THREAD_WORKERS)
@@ -155,6 +184,8 @@ if __name__ == "__main__":
             assemble_scene(target)
         else:
             assemble_section(target)
+            if args.concat:
+                concat_section(target)
         _executor.shutdown(wait=True)
     else:
         parser.print_help()
