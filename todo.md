@@ -1,44 +1,98 @@
 # VidJourney TODO
 
-## Timeline Rework
+## Subtitles — future improvements
 
-The timeline module currently has 7 separate builders per scene type. This needs to be unified into a single visual pattern.
+Burned-in subtitles are working (libass via the `subtitles` filter). Cards
+generated per-scene from the timeline's `VOICEOVER` field, time-distributed by
+word count, with per-segment anchoring for list scenes via the
+`timeline_*.parts.json` sidecar.
 
-### Core Changes
+### Sync improvements (in order of return-on-effort)
 
-- [ ] **Single visual pattern for all scene types** — scan voiceover word by word, spawn entity/keyword shapes at the moment the narrator says them. No different builders per scene type.
-- [ ] **Sliding window eviction** — max N entities on screen (`max_on_screen` from config). When a new entity spawns and we're at capacity, fade the oldest one. FIFO eviction.
-- [ ] **Screen never blank** — current visuals stay until the next scene's first entity spawns. Don't fade at scene boundaries unless the next scene has an immediate visual.
-- [ ] **Arrows only for classified verbs** — use `relation_classifier.needs_arrow()` to decide if an arrow is drawn. No arrows for comparisons, attributions, descriptions.
-- [ ] **SHOW_RESOURCE exception** — when a scene has a display resource (image/code block/table), show the image instead of shapes. This is the only exception to the unified pattern.
+- [ ] **Smart word-duration estimation** — syllable count + punctuation pauses
+  (comma ~0.25s, period ~0.5s, em-dash ~0.4s). No new dependencies. Gets
+  ~70-80% of the way to forced alignment. Voice-agnostic.
 
-### How It Should Work
+  ```python
+  def syllables(word: str) -> int:
+      vowels = re.findall(r"[aeiouy]+", word.lower())
+      return max(1, len(vowels))
 
-1. Extract keywords from voiceover (YAKE)
-2. Find word position of each keyword in voiceover text
-3. Calculate time offset: `(word_position / total_words) * narration_duration`
-4. At that time: SPAWN the keyword as a shape on screen
-5. If at max capacity: FADE the oldest entity first
-6. If a relation exists between two on-screen entities and the verb warrants an arrow: draw it
-7. At scene end: don't fade — let visuals carry over to next scene
+  def word_weight(word: str, next_punct: str) -> float:
+      base = syllables(word)
+      if next_punct == ",":   return base + 0.5
+      if next_punct in ".!?": return base + 1.0
+      if next_punct == "—":   return base + 0.7
+      return base
+  ```
 
-### Example
+  Distribute scene/segment duration proportional to summed weights.
 
-Voiceover: "If that sounds painfully obvious, that's just because these data systems are such a successful abstraction"
+- [ ] **Forced alignment via whisper-timestamped** — exact word-level sync.
+  Voice-agnostic (re-aligns automatically against actual audio).
+  Cost: ~150MB whisper model + 5-10s CPU per scene.
 
+  ```python
+  import whisper_timestamped as wts
+  audio = wts.load_audio(scene_wav)
+  result = wts.transcribe(model, audio, language="en")
+  # result["segments"][i]["words"][j] = {"text", "start", "end"}
+  ```
+
+### Style / UX
+
+- [ ] **Per-section subtitle themes** — italic for quotes, larger for headings
+- [ ] **Background box option** — `BorderStyle=3` for opaque box on busy backgrounds
+- [ ] **Position-aware** — top of screen during list scenes (so summaries stay
+  visible at the top), bottom for paragraphs
+- [ ] **Soft subtitles option** (mov_text) — toggle-able in player, alongside or
+  instead of burn-in
+
+### Other
+
+- [ ] **Multi-language subtitles** — whisper-timestamped supports translation,
+  could generate parallel SRT tracks
+- [ ] **Drift quality check** — post-render, run whisper on the final mp4 audio,
+  compare to subtitle file, regenerate if drift exceeds threshold
+
+## When voice model changes
+
+Cache invalidation checklist:
+
+```bash
+rm -rf pipeline/groups/narration/items/         # per-item TTS cache
+rm -f pipeline/groups/narration/timeline_*.wav  # scene narration cache
+rm -f pipeline/groups/timelines/*.parts.json    # measured durations
+rm -rf pipeline/groups/subtitles/               # subtitle cards
+rm -f pipeline/output/timeline_*.mp4            # per-scene assembled mp4s
+rm -f pipeline/output/section_*.mp4             # final concatenated mp4s
 ```
-00:00 - 03:60  narrator speaks (nothing on screen yet, previous scene's visuals still showing)
-03:60          SPAWN "data systems" (keyword detected)
-               → previous scene's oldest entity fades if at capacity
-05:60          SPAWN "successful abstraction" (keyword detected)
-               → both stay visible, carry over to next scene
-```
 
-## Other TODOs
+Regenerate timelines (re-narrates parts with new voice, re-measures durations),
+then re-assemble. Forced alignment (when added) makes this automatic — just
+re-run alignment on the new audio.
 
-- [ ] Improve storyboard prompt — list items not always included in voiceover
-- [ ] Handle quotes deterministically — detect `—` attribution pattern in ingestion
-- [ ] Icon/SVG download for concrete entities (Iconify API) — fallback to shapes
-- [ ] Concatenate per-scene videos into full section video (ffmpeg concat)
-- [ ] Test full pipeline end-to-end from main.py
-- [ ] Tune YAKE parameters — still getting overlapping keywords like "sounds painfully" + "painfully obvious"
+## Pipeline cleanup
+
+- [ ] **Cache invalidation hook** — detect voice/model config changes and
+  invalidate the right caches automatically (instead of manual `rm -rf`)
+- [ ] **Concurrent render flakiness** — manim sometimes fails when 4 scenes
+  render in parallel. Currently mitigated by 2-thread concurrency. Investigate
+  whether it's a manim bug, file-locking issue, or resource contention.
+- [ ] **Dangling resources policy** — currently dropped entirely. Reconsider
+  if some standalone images deserve display (e.g., section opener art).
+- [ ] **Image + list combination** — paragraph groups with both an image and a
+  list currently show image during intro then transition to list. Works but
+  the transition is a 0.5s blank moment. Could overlap fade-out and fade-in.
+
+## Storyboard / scene quality
+
+- [ ] **Mid-paragraph quote detection** — currently only detected when the
+  whole paragraph is a quote. Often quotes are embedded mid-paragraph with
+  attribution.
+- [ ] **Code block syntax highlighting in narration** — code blocks display
+  as images, but voiceover would benefit from "code:" prefix or skipping
+  punctuation when reading code-heavy items.
+- [ ] **Handle long paragraphs better** — single-paragraph scenes that run 90+
+  seconds with one entity set are too static. Consider splitting into multiple
+  scenes with different entity sets per paragraph chunk.

@@ -11,17 +11,21 @@ from watchdog.events import FileSystemEventHandler
 from concurrent.futures import ThreadPoolExecutor
 
 from src.assembler.ffmpeg_merge import merge_audio_video, concat_videos
+from src.subtitles.srt_writer import generate_srt
 from src.utils import logger, timer
 from src.config.constants import (
     GROUPING_NARRATION_DIR,
     GROUPING_OUTPUT_DIR,
     GROUPING_MANIM_VIDEO_DIR,
+    GROUPING_TIMELINES_DIR,
 )
 
 
 NARRATION_DIR = GROUPING_NARRATION_DIR
 OUTPUT_DIR = GROUPING_OUTPUT_DIR
 MANIM_VIDEO_DIR = GROUPING_MANIM_VIDEO_DIR
+TIMELINES_DIR = GROUPING_TIMELINES_DIR
+SUBTITLES_DIR = Path("pipeline/groups/subtitles")
 
 
 def _find_video(scene_name: str) -> Path | None:
@@ -34,9 +38,21 @@ def _find_video(scene_name: str) -> Path | None:
     return None
 
 
+def _ensure_subtitles(scene_name: str) -> Path | None:
+    """Generate the SRT for a scene from its timeline file. Returns None if no timeline."""
+    timeline_path = TIMELINES_DIR / f"{scene_name}.txt"
+    if not timeline_path.exists():
+        return None
+    SUBTITLES_DIR.mkdir(parents=True, exist_ok=True)
+    srt_path = SUBTITLES_DIR / f"{scene_name}.srt"
+    if not srt_path.exists():
+        generate_srt(timeline_path, srt_path)
+    return srt_path if srt_path.exists() and srt_path.stat().st_size > 0 else None
+
+
 @timer(label="Assemble scene")
 def assemble_scene(scene_name: str) -> Path | None:
-    """Merge audio + video for a single scene if both exist."""
+    """Merge audio + video for a single scene (with burned-in subtitles) if both exist."""
     audio_path = NARRATION_DIR / f"{scene_name}.wav"
     video_path = _find_video(scene_name)
 
@@ -52,8 +68,10 @@ def assemble_scene(scene_name: str) -> Path | None:
         logger.info(f"Already assembled: {output_file.name}")
         return output_file
 
+    srt_path = _ensure_subtitles(scene_name)
+
     logger.info(f"Assembling: {audio_path.name} + {video_path.name} → {scene_name}.mp4")
-    return merge_audio_video(video_path, audio_path, scene_name)
+    return merge_audio_video(video_path, audio_path, scene_name, subtitles_path=srt_path)
 
 
 # --- Watchdog ---

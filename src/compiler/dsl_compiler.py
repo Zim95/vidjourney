@@ -141,7 +141,7 @@ def _compile_events(events: list[dict]) -> str:
 
     for event in sorted_events:
         gap = round(event["time"] - prev_time, 1)
-        if gap > 0 and sequence:
+        if gap > 0:
             sequence.append(f'    WAIT {gap}')
 
         if event["action"] == "SPAWN":
@@ -283,6 +283,27 @@ def _compile_events(events: list[dict]) -> str:
                 f'    TEXT "{_escape_dsl_string(event["target"])}"',
                 f'    POSITION (0.0,0.0)',
                 f'    SIZE 10.0',
+                f'    SPAWN shape_popup {SPAWN_TIME}',
+                f'    REMOVE shape_popout {REMOVE_TIME}',
+                f'END',
+                f'',
+            ])
+            sequence.append(f'    SPAWN {ident}')
+            ident_by_index.append(ident)
+            prev_time = event["time"]
+
+        elif event["action"] == "SHOW_LIST_ITEM":
+            li_idx = len([i for i in ident_by_index if i.startswith("listitem_")])
+            ident = f"listitem_{li_idx}"
+            # Stack list items vertically, left-aligned. Each row spaced 1.0 manim units.
+            y = 2.5 - li_idx * 1.0
+            x = -5.5  # left edge anchor (HeadingShape-style left-anchored text)
+            elements.extend([
+                f'ELEMENT {ident} TYPE shape',
+                f'    SHAPE list_item',
+                f'    TEXT "{_escape_dsl_string(event["target"])}"',
+                f'    POSITION ({x},{y})',
+                f'    SIZE 11.0',
                 f'    SPAWN shape_popup {SPAWN_TIME}',
                 f'    REMOVE shape_popout {REMOVE_TIME}',
                 f'END',

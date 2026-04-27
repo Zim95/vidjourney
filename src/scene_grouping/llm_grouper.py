@@ -83,6 +83,7 @@ Now analyze these elements:
 class Element:
     kind: str       # HEADING, PARAGRAPH, LIST_ITEM, IMAGE, TABLE, CAPTION, LINK, etc.
     text: str       # content (path for IMAGE/TABLE/CODE_BLOCK)
+    summary: str | None = None  # short bullet-friendly version (LIST_ITEM only)
 
 
 @dataclass
@@ -129,15 +130,17 @@ def serialize_groups(groups: list[ContentGroup]) -> str:
           HEADING Thinking About Data Systems
 
         GROUP 1: paragraph
-          PARAGRAPH We typically think of databases...
-          IMAGE pipeline/sections/resources/images/3_27_images_1.png
-          CAPTION Figure 1-1. One possible architecture...
+          PARAGRAPH The first four chapters...
+          LIST_ITEM Chapter 1 introduces the terminology...
+          SUMMARY: Terminology & approach
     """
     blocks = []
     for i, group in enumerate(groups):
         lines = [f"GROUP {i}: {group.kind}"]
         for el in group.elements:
             lines.append(f"  {el.kind} {el.text}")
+            if el.summary:
+                lines.append(f"  SUMMARY: {el.summary}")
         blocks.append("\n".join(lines))
     return "\n\n".join(blocks) + "\n"
 
@@ -156,11 +159,16 @@ def deserialize_groups(text: str) -> list[ContentGroup]:
         # GROUP header: "GROUP 0: heading"
         group_match = re.match(r"^GROUP\s+\d+:\s+(\S+)$", line)
         if group_match:
-            # Flush previous group
             if current_kind is not None:
                 groups.append(ContentGroup(kind=current_kind, elements=current_elements))
             current_kind = group_match.group(1)
             current_elements = []
+            continue
+
+        # Summary metadata for previous element: "SUMMARY: text"
+        summary_match = re.match(r"^SUMMARY:\s*(.*)$", line)
+        if summary_match and current_elements:
+            current_elements[-1].summary = summary_match.group(1).strip()
             continue
 
         # Element line: "  KIND text..."
@@ -172,11 +180,10 @@ def deserialize_groups(text: str) -> list[ContentGroup]:
             current_elements.append(Element(kind=el_match.group(1), text=el_match.group(2).strip()))
             continue
 
-        # Continuation line (no KIND prefix) — append to previous element
+        # Continuation line — append to previous text element
         if current_elements and current_elements[-1].kind in ("PARAGRAPH", "LIST_ITEM", "HEADING", "CAPTION"):
             current_elements[-1].text += " " + line
 
-    # Flush last group
     if current_kind is not None:
         groups.append(ContentGroup(kind=current_kind, elements=current_elements))
 
@@ -585,6 +592,65 @@ def _merge_adjacent_resources(groups: list[ContentGroup]) -> list[ContentGroup]:
     return merged
 
 
+SUMMARY_PROMPT = """\
+You are given a list of bullet items from a document. For each item, produce a
+short visual-display summary of 3 to 5 words.
+
+Rules:
+- Each summary must capture the main idea — not a paraphrase of the whole sentence.
+- Use sentence case (capitalize first word, no trailing punctuation).
+- Do NOT use periods at the end. Do NOT add bullet markers like "•" or numbers.
+- Keep it scannable: a viewer should be able to read it in under a second.
+
+Items:
+{items}
+
+Output valid JSON only:
+{{"summaries": ["summary 1", "summary 2", ...]}}
+
+The summaries array must have the same length as the input items, in the same order."""
+
+
+def _generate_list_item_summaries(items: list[str]) -> list[str]:
+    """Call the LLM to summarize a batch of list items. Falls back to truncation on failure."""
+    if not items:
+        return []
+    numbered = "\n".join(f"{i + 1}. {text}" for i, text in enumerate(items))
+    prompt = SUMMARY_PROMPT.format(items=numbered)
+
+    for attempt in range(1, OLLAMA_MAX_RETRIES + 1):
+        try:
+            response_text = _call_ollama(prompt)
+            data = json.loads(response_text)
+            summaries = data.get("summaries", [])
+            if isinstance(summaries, list) and len(summaries) == len(items):
+                return [str(s).strip().rstrip(".") for s in summaries]
+            logger.warning(
+                f"Summary count mismatch: got {len(summaries) if isinstance(summaries, list) else 'non-list'}, "
+                f"expected {len(items)}"
+            )
+        except (requests.RequestException, json.JSONDecodeError, ValueError, KeyError) as exc:
+            logger.warning(f"Summary attempt {attempt}/{OLLAMA_MAX_RETRIES} failed: {exc}")
+
+    # Fallback: truncate each item to first ~5 words
+    logger.warning("Summary generation failed, using truncation fallback")
+    return [" ".join(t.split()[:5]) for t in items]
+
+
+def _attach_summaries_to_groups(groups: list[ContentGroup]) -> None:
+    """For each group containing LIST_ITEMs, generate summaries via LLM (one call per group)."""
+    for group in groups:
+        list_items = [el for el in group.elements if el.kind == "LIST_ITEM"]
+        # Skip if all items already have summaries (re-run case)
+        if not list_items or all(item.summary for item in list_items):
+            continue
+        item_texts = [item.text for item in list_items]
+        summaries = _generate_list_item_summaries(item_texts)
+        for item, summary in zip(list_items, summaries):
+            item.summary = summary
+        logger.info(f"Generated {len(summaries)} list item summaries for group ({group.kind})")
+
+
 def group_elements(elements: list[Element]) -> list[ContentGroup]:
     """Group elements using LLM associations with structural fallback."""
     has_paragraphs = any(e.kind == "PARAGRAPH" for e in elements)
@@ -594,7 +660,9 @@ def group_elements(elements: list[Element]) -> list[ContentGroup]:
     # (Embedded list detection still requires the LLM — but only when there are paragraphs.)
     if not has_paragraphs:
         logger.info("No paragraphs, using structural grouping")
-        return _structural_fallback(elements)
+        groups = _structural_fallback(elements)
+        _attach_summaries_to_groups(groups)
+        return groups
 
     # Try LLM-based grouping (associations + embedded-list detection)
     for attempt in range(1, OLLAMA_MAX_RETRIES + 1):
@@ -610,12 +678,15 @@ def group_elements(elements: list[Element]) -> list[ContentGroup]:
             groups = _assemble_groups(new_elements, new_associations)
             if has_resources:
                 groups = _merge_adjacent_resources(groups)
+            _attach_summaries_to_groups(groups)
             return groups
         except (requests.RequestException, json.JSONDecodeError, KeyError, ValueError) as exc:
             logger.warning(f"LLM grouping attempt {attempt}/{OLLAMA_MAX_RETRIES} failed: {exc}")
 
     logger.warning("LLM grouping failed, falling back to structural grouping")
-    return _structural_fallback(elements)
+    groups = _structural_fallback(elements)
+    _attach_summaries_to_groups(groups)
+    return groups
 
 
 # --- File I/O ---

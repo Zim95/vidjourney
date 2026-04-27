@@ -31,6 +31,7 @@ from .objects.shape_objects import (
     AutoRectangleShape,
     CircleShape,
     HeadingShape,
+    ListItemShape,
     QuoteShape,
     RectangleShape,
     ShapeObject,
@@ -48,6 +49,7 @@ SHAPE_OBJECT_MAP: dict[str, Type[ShapeObject]] = {
     "auto_rect": AutoRectangleShape,
     "text_heading": HeadingShape,
     "text_quote": QuoteShape,
+    "list_item": ListItemShape,
 }
 
 ARROW_OBJECT_MAP: dict[str, Type[ArrowObject]] = {

@@ -141,6 +141,34 @@ class QuoteShape(ShapeObject):
 
 
 @dataclass
+class ListItemShape(ShapeObject):
+    """Bullet item — left-anchored bold white text with a leading bullet.
+
+    Position represents the LEFT edge of the text, not the center, so items
+    in a vertical list line up cleanly regardless of length.
+    """
+    target_width: float = 11.0  # max width (clamped)
+    text_height: float = 0.5
+
+    def set_size(self, size: float) -> ListItemShape:
+        self.target_width = size
+        return self
+
+    def draw(self) -> Mobject:
+        body = self.text or ""
+        full = f"•  {body}" if body else "•"
+        text = Text(full, color=self.text_color, font="Arial", weight=BOLD)
+        text.scale_to_fit_height(self.text_height)
+        # Clamp horizontal width if too long
+        if text.width > self.target_width:
+            text.scale_to_fit_width(self.target_width)
+        # Position represents the LEFT edge — shift so left edge sits at position.x
+        target_x, target_y = self.position
+        text.move_to([target_x + text.width / 2, target_y, 0])
+        return text
+
+
+@dataclass
 class AutoRectangleShape(ShapeObject):
     """Rectangle that auto-sizes its width to fit the text inside, with padding."""
     min_width: float = 1.5

@@ -21,6 +21,7 @@ import requests
 from src.utils import logger, timer
 from src.config.constants import (
     GROUPING_CONTENT_GROUPS_DIR,
+    GROUPING_NARRATION_DIR,
     GROUPING_TIMELINES_DIR,
     OLLAMA_BASE_URL,
     OLLAMA_CHAT_MODEL,
@@ -32,6 +33,8 @@ from src.scene_grouping.llm_grouper import (
     RESOURCE_KINDS,
 )
 from src.scene_grouping.llm_entity import extract as extract_entities, EntityResult
+from src.narration.narrator import narrate_text, get_audio_duration
+from src.assembler.ffmpeg_merge import concat_wavs
 
 
 CONTENT_GROUPS_DIR = GROUPING_CONTENT_GROUPS_DIR
@@ -241,33 +244,152 @@ def _build_paragraph_resource_scenes(group: ContentGroup, scene_id: int) -> list
     return scenes
 
 
-def _build_paragraph_list_scenes(group: ContentGroup, scene_id: int) -> list[Scene]:
-    scenes = []
+def _build_paragraph_list_scenes(
+    group: ContentGroup,
+    scene_id: int,
+    section_name: str,
+) -> list[Scene]:
+    """One scene for the whole paragraph+list group.
 
-    # Intro paragraph scene
-    intro_text = group.anchor.text
-    dur = _duration(intro_text)
-    scenes.append(Scene(
+    If the group also has an associated resource (image/code_block/table), it's
+    shown during the intro narration and faded out as the first list item appears.
+    """
+    intro_text = group.anchor.text.strip()
+    list_items = group.list_items
+    intro_resources = group.resources  # show during intro, fade before items
+
+    return _build_list_scene(
         scene_id=scene_id,
-        voiceover=intro_text,
-        duration=dur,
-        events=[TimelineEvent(time=0.0, action="HOLD", target="", duration=dur)],
-    ))
-    scene_id += 1
+        section_name=section_name,
+        intro_text=intro_text,
+        list_items=list_items,
+        intro_resources=intro_resources,
+        intro_caption_map=group.caption_for_resource,
+    )
 
-    # One scene per list item
-    for item_el in group.list_items:
+
+def _build_standalone_list_scenes(
+    group: ContentGroup,
+    scene_id: int,
+    section_name: str,
+) -> list[Scene]:
+    """List with no paragraph anchor — same accumulation behavior, just no intro."""
+    return _build_list_scene(
+        scene_id=scene_id,
+        section_name=section_name,
+        intro_text="",
+        list_items=group.list_items,
+        intro_resources=[],
+        intro_caption_map={},
+    )
+
+
+def _build_list_scene(
+    scene_id: int,
+    section_name: str,
+    intro_text: str,
+    list_items: list,
+    intro_resources: list,
+    intro_caption_map: dict,
+) -> list[Scene]:
+    """Shared logic: pre-narrate parts, build a single accumulating-list scene.
+
+    If intro_resources is non-empty, the first resource is shown during the intro
+    narration and faded out as the first list item appears (acts as setup imagery).
+    """
+    if not list_items:
+        return []
+
+    scene_stem = f"timeline_{section_name}_scene_{scene_id}"
+    items_dir = GROUPING_NARRATION_DIR / "items"
+    items_dir.mkdir(parents=True, exist_ok=True)
+
+    # Pre-narrate each part to know exact durations
+    part_wavs: list[Path] = []
+    part_durations: list[float] = []
+
+    if intro_text:
+        intro_wav = items_dir / f"{scene_stem}_intro.wav"
+        narrate_text(intro_text, intro_wav)
+        part_wavs.append(intro_wav)
+        part_durations.append(get_audio_duration(intro_wav))
+
+    item_texts: list[str] = []
+    for i, item_el in enumerate(list_items):
         text = _strip_bullet(item_el.text)
-        dur = _duration(text)
-        scenes.append(Scene(
-            scene_id=scene_id,
-            voiceover=text,
-            duration=dur,
-            events=[TimelineEvent(time=0.0, action="HOLD", target="", duration=dur)],
-        ))
-        scene_id += 1
+        item_texts.append(text)
+        item_wav = items_dir / f"{scene_stem}_item_{i + 1}.wav"
+        narrate_text(text, item_wav)
+        part_wavs.append(item_wav)
+        part_durations.append(get_audio_duration(item_wav))
 
-    return scenes
+    # Compose the events
+    events: list[TimelineEvent] = []
+    cumulative = 0.0
+    intro_dur = part_durations[0] if intro_text else 0.0
+
+    # Show intro resource (if any) at time 0 — fades out when first list item spawns
+    intro_resource = intro_resources[0] if intro_resources and intro_text else None
+    if intro_resource is not None:
+        caption = intro_caption_map.get(intro_resource.text) or ""
+        target = f"{intro_resource.text}|||{caption}" if caption else intro_resource.text
+        events.append(TimelineEvent(
+            time=0.0,
+            action="SHOW_RESOURCE",
+            target=target,
+            duration=SPAWN_DURATION,
+        ))
+        # Fade the image right when the first list item is about to spawn
+        events.append(TimelineEvent(
+            time=round(intro_dur, 2),
+            action="FADE",
+            target="*",
+            duration=FADE_DURATION,
+        ))
+
+    cumulative = intro_dur
+    intro_dur_offset = 1 if intro_text else 0
+    for i, item_el in enumerate(list_items):
+        summary = (item_el.summary or _strip_bullet(item_el.text)).strip()
+        events.append(TimelineEvent(
+            time=round(cumulative, 2),
+            action="SHOW_LIST_ITEM",
+            target=summary,
+            duration=SPAWN_DURATION,
+        ))
+        cumulative += part_durations[i + intro_dur_offset]
+
+    total_duration = round(cumulative, 2)
+    fade_at = round(total_duration - FADE_DURATION, 2)
+    events.append(TimelineEvent(time=fade_at, action="FADE", target="*", duration=FADE_DURATION))
+
+    # Concatenate per-part WAVs into the scene's narration file
+    scene_wav = GROUPING_NARRATION_DIR / f"{scene_stem}.wav"
+    if not scene_wav.exists():
+        concat_wavs(part_wavs, scene_wav)
+
+    voiceover_parts = [intro_text] if intro_text else []
+    voiceover_parts.extend(item_texts)
+    voiceover = " ".join(voiceover_parts).strip()
+
+    # Write a parts sidecar — used by the subtitle generator to align cards
+    # to actual per-segment audio windows instead of word-count averaging.
+    parts_meta: list[dict] = []
+    if intro_text:
+        parts_meta.append({"text": intro_text, "duration": part_durations[0]})
+    for i, text in enumerate(item_texts):
+        parts_meta.append({"text": text, "duration": part_durations[i + intro_dur_offset]})
+
+    sidecar_path = TIMELINES_DIR / f"{scene_stem}.parts.json"
+    sidecar_path.parent.mkdir(parents=True, exist_ok=True)
+    sidecar_path.write_text(json.dumps(parts_meta, indent=2), encoding="utf-8")
+
+    return [Scene(
+        scene_id=scene_id,
+        voiceover=voiceover,
+        duration=total_duration,
+        events=events,
+    )]
 
 
 def _build_paragraph_blank_scenes(group: ContentGroup, scene_id: int) -> list[Scene]:
@@ -351,25 +473,14 @@ def _build_standalone_resource_scenes(group: ContentGroup, scene_id: int) -> lis
     )]
 
 
-def _build_standalone_list_scenes(group: ContentGroup, scene_id: int) -> list[Scene]:
-    scenes = []
-    for item_el in group.list_items:
-        text = _strip_bullet(item_el.text)
-        dur = _duration(text)
-        scenes.append(Scene(
-            scene_id=scene_id,
-            voiceover=text,
-            duration=dur,
-            events=[TimelineEvent(time=0.0, action="HOLD", target="", duration=dur)],
-        ))
-        scene_id += 1
-    return scenes
-
-
 # --- Dispatcher ---
 
-def build_timeline(groups: list[ContentGroup]) -> list[Scene]:
-    """Convert content groups into a flat list of scenes."""
+def build_timeline(groups: list[ContentGroup], section_name: str = "section") -> list[Scene]:
+    """Convert content groups into a flat list of scenes.
+
+    section_name is used to derive per-scene narration paths for list scenes
+    that need pre-narrated per-item WAVs (e.g., "section_1").
+    """
     scenes: list[Scene] = []
     scene_id = 1
 
@@ -378,7 +489,7 @@ def build_timeline(groups: list[ContentGroup]) -> list[Scene]:
             new_scenes = _build_heading_scenes(group, scene_id)
         elif group.kind == "paragraph":
             if group.list_items:
-                new_scenes = _build_paragraph_list_scenes(group, scene_id)
+                new_scenes = _build_paragraph_list_scenes(group, scene_id, section_name)
             elif group.resources:
                 new_scenes = _build_paragraph_resource_scenes(group, scene_id)
             else:
@@ -391,7 +502,7 @@ def build_timeline(groups: list[ContentGroup]) -> list[Scene]:
             logger.info(f"Skipping dangling {group.kind} group: {group.anchor.text[:60]}")
             continue
         elif group.kind == "list":
-            new_scenes = _build_standalone_list_scenes(group, scene_id)
+            new_scenes = _build_standalone_list_scenes(group, scene_id, section_name)
         else:
             continue
 
@@ -433,7 +544,7 @@ def timeline_section_file(content_groups_file: Path) -> list[Path]:
     section_name = content_groups_file.stem
     content = content_groups_file.read_text(encoding="utf-8", errors="replace")
     groups = deserialize_groups(content)
-    scenes = build_timeline(groups)
+    scenes = build_timeline(groups, section_name=section_name)
 
     written: list[Path] = []
     for scene in scenes:
