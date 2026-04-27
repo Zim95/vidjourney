@@ -120,9 +120,40 @@ GROUPING_SHAPE_SIZE = float(_cfg_text("grouping", "shape_size", "1.0"))
 GROUPING_ANIMATION_SPAWN_TIME = float(_cfg_text("grouping", "animation_spawn_time", "0.5"))
 GROUPING_ANIMATION_REMOVE_TIME = float(_cfg_text("grouping", "animation_remove_time", "0.5"))
 
+# Timing
+GROUPING_WORDS_PER_MINUTE = float(_cfg_text("grouping", "words_per_minute", "150.0"))
+GROUPING_MIN_SCENE_DURATION = float(_cfg_text("grouping", "min_scene_duration", "4.0"))
+
+# Resource (image/code_block/table) display
+GROUPING_RESOURCE_SIZE = float(_cfg_text("grouping", "resource_size", "8.0"))
+
+# Heading / quote text width (manim units)
+GROUPING_HEADING_TARGET_WIDTH = float(_cfg_text("grouping", "heading_target_width", "10.0"))
+GROUPING_QUOTE_TARGET_WIDTH = float(_cfg_text("grouping", "quote_target_width", "10.0"))
+
+# List item layout (left-anchored vertical stack)
+GROUPING_LIST_ITEM_X = float(_cfg_text("grouping", "list_item_x", "-5.5"))
+GROUPING_LIST_ITEM_Y_TOP = float(_cfg_text("grouping", "list_item_y_top", "2.5"))
+GROUPING_LIST_ITEM_SPACING = float(_cfg_text("grouping", "list_item_spacing", "1.0"))
+GROUPING_LIST_ITEM_TARGET_WIDTH = float(_cfg_text("grouping", "list_item_target_width", "11.0"))
+
 # Renderer
 GROUPING_RENDER_DIR = _cfg_path("grouping", "render_dir", "pipeline/render")
 GROUPING_MANIM_VIDEO_DIR = _cfg_path("grouping", "manim_video_dir", "media/videos/manim_runner/480p15")
+
+# Subtitles
+SUBTITLES_DIR = _cfg_path("subtitles", "subtitles_dir", "pipeline/groups/subtitles")
+SUBTITLE_CHUNK_WORDS = _cfg_int("subtitles", "chunk_words", 6)
+SUBTITLE_MAX_CHARS_PER_LINE = _cfg_int("subtitles", "max_chars_per_line", 56)
+SUBTITLE_FONT_NAME = _cfg_text("subtitles", "font_name", "Arial")
+SUBTITLE_FONT_SIZE = _cfg_int("subtitles", "font_size", 24)
+SUBTITLE_PRIMARY_COLOR = _cfg_text("subtitles", "primary_color", "&Hffffff&")
+SUBTITLE_OUTLINE_COLOR = _cfg_text("subtitles", "outline_color", "&H000000&")
+SUBTITLE_BORDER_STYLE = _cfg_int("subtitles", "border_style", 1)
+SUBTITLE_OUTLINE = _cfg_int("subtitles", "outline", 2)
+SUBTITLE_SHADOW = _cfg_int("subtitles", "shadow", 1)
+SUBTITLE_ALIGNMENT = _cfg_int("subtitles", "alignment", 2)
+SUBTITLE_MARGIN_V = _cfg_int("subtitles", "margin_v", 60)
 
 # Code block rendering
 INGESTION_CODE_BLOCK_IMAGE_PAD = _cfg_int("ingestion", "code_block_image_pad", 20)

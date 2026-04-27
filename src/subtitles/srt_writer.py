@@ -16,10 +16,10 @@ import json
 import re
 from pathlib import Path
 
-
-# --- Tuning knobs ---
-CHUNK_WORDS = 6          # words per subtitle card — short cards read fast
-MAX_CHARS_PER_LINE = 56  # most chunks fit on one line; rare overflow → 2 lines
+from src.config.constants import (
+    SUBTITLE_CHUNK_WORDS as CHUNK_WORDS,
+    SUBTITLE_MAX_CHARS_PER_LINE as MAX_CHARS_PER_LINE,
+)
 
 
 def _format_time(seconds: float) -> str:

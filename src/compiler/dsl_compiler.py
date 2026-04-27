@@ -19,6 +19,13 @@ from src.config.constants import (
     GROUPING_SHAPE_SIZE,
     GROUPING_ANIMATION_SPAWN_TIME,
     GROUPING_ANIMATION_REMOVE_TIME,
+    GROUPING_RESOURCE_SIZE,
+    GROUPING_HEADING_TARGET_WIDTH,
+    GROUPING_QUOTE_TARGET_WIDTH,
+    GROUPING_LIST_ITEM_X,
+    GROUPING_LIST_ITEM_Y_TOP,
+    GROUPING_LIST_ITEM_SPACING,
+    GROUPING_LIST_ITEM_TARGET_WIDTH,
 )
 from src.icons.icon_downloader import icon_path
 
@@ -34,6 +41,13 @@ GRID_MAX_COLS = GROUPING_GRID_MAX_COLS
 SHAPE_SIZE = GROUPING_SHAPE_SIZE
 SPAWN_TIME = GROUPING_ANIMATION_SPAWN_TIME
 REMOVE_TIME = GROUPING_ANIMATION_REMOVE_TIME
+RESOURCE_SIZE = GROUPING_RESOURCE_SIZE
+HEADING_TARGET_WIDTH = GROUPING_HEADING_TARGET_WIDTH
+QUOTE_TARGET_WIDTH = GROUPING_QUOTE_TARGET_WIDTH
+LIST_ITEM_X = GROUPING_LIST_ITEM_X
+LIST_ITEM_Y_TOP = GROUPING_LIST_ITEM_Y_TOP
+LIST_ITEM_SPACING = GROUPING_LIST_ITEM_SPACING
+LIST_ITEM_TARGET_WIDTH = GROUPING_LIST_ITEM_TARGET_WIDTH
 
 COLORS = ["blue", "green", "red", "orange", "purple", "yellow", "teal", "pink"]
 
@@ -259,7 +273,7 @@ def _compile_events(events: list[dict]) -> str:
                 f'ELEMENT {ident} TYPE image',
                 f'    URL "{_escape_dsl_string(path)}"',
                 f'    POSITION (0.0,0.0)',
-                f'    SIZE 8.0',
+                f'    SIZE {RESOURCE_SIZE}',
             ]
             if caption:
                 element_lines.append(f'    TEXT "{_escape_dsl_string(caption)}"')
@@ -282,7 +296,7 @@ def _compile_events(events: list[dict]) -> str:
                 f'    SHAPE text_heading',
                 f'    TEXT "{_escape_dsl_string(event["target"])}"',
                 f'    POSITION (0.0,0.0)',
-                f'    SIZE 10.0',
+                f'    SIZE {HEADING_TARGET_WIDTH}',
                 f'    SPAWN shape_popup {SPAWN_TIME}',
                 f'    REMOVE shape_popout {REMOVE_TIME}',
                 f'END',
@@ -295,15 +309,15 @@ def _compile_events(events: list[dict]) -> str:
         elif event["action"] == "SHOW_LIST_ITEM":
             li_idx = len([i for i in ident_by_index if i.startswith("listitem_")])
             ident = f"listitem_{li_idx}"
-            # Stack list items vertically, left-aligned. Each row spaced 1.0 manim units.
-            y = 2.5 - li_idx * 1.0
-            x = -5.5  # left edge anchor (HeadingShape-style left-anchored text)
+            # Stack list items vertically, left-aligned (each row spaced LIST_ITEM_SPACING units)
+            y = LIST_ITEM_Y_TOP - li_idx * LIST_ITEM_SPACING
+            x = LIST_ITEM_X
             elements.extend([
                 f'ELEMENT {ident} TYPE shape',
                 f'    SHAPE list_item',
                 f'    TEXT "{_escape_dsl_string(event["target"])}"',
                 f'    POSITION ({x},{y})',
-                f'    SIZE 11.0',
+                f'    SIZE {LIST_ITEM_TARGET_WIDTH}',
                 f'    SPAWN shape_popup {SPAWN_TIME}',
                 f'    REMOVE shape_popout {REMOVE_TIME}',
                 f'END',
@@ -321,7 +335,7 @@ def _compile_events(events: list[dict]) -> str:
                 f'    SHAPE text_quote',
                 f'    TEXT "{_escape_dsl_string(event["target"])}"',
                 f'    POSITION (0.0,0.0)',
-                f'    SIZE 10.0',
+                f'    SIZE {QUOTE_TARGET_WIDTH}',
                 f'    SPAWN shape_popup {SPAWN_TIME}',
                 f'    REMOVE shape_popout {REMOVE_TIME}',
                 f'END',

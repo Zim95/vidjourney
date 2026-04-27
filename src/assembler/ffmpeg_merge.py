@@ -7,17 +7,28 @@ import tempfile
 from pathlib import Path
 
 from src.utils import logger
-from src.config.constants import GROUPING_OUTPUT_DIR
+from src.config.constants import (
+    GROUPING_OUTPUT_DIR,
+    SUBTITLE_FONT_NAME,
+    SUBTITLE_FONT_SIZE,
+    SUBTITLE_PRIMARY_COLOR,
+    SUBTITLE_OUTLINE_COLOR,
+    SUBTITLE_BORDER_STYLE,
+    SUBTITLE_OUTLINE,
+    SUBTITLE_SHADOW,
+    SUBTITLE_ALIGNMENT,
+    SUBTITLE_MARGIN_V,
+)
 
 
 OUTPUT_DIR = GROUPING_OUTPUT_DIR
 
 
 SUBTITLE_STYLE = (
-    "FontName=Arial,FontSize=24,"
-    "PrimaryColour=&Hffffff&,OutlineColour=&H000000&,"
-    "BorderStyle=1,Outline=2,Shadow=1,"
-    "Alignment=2,MarginV=60"
+    f"FontName={SUBTITLE_FONT_NAME},FontSize={SUBTITLE_FONT_SIZE},"
+    f"PrimaryColour={SUBTITLE_PRIMARY_COLOR},OutlineColour={SUBTITLE_OUTLINE_COLOR},"
+    f"BorderStyle={SUBTITLE_BORDER_STYLE},Outline={SUBTITLE_OUTLINE},Shadow={SUBTITLE_SHADOW},"
+    f"Alignment={SUBTITLE_ALIGNMENT},MarginV={SUBTITLE_MARGIN_V}"
 )
 
 
