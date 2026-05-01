@@ -23,6 +23,7 @@ from src.config.constants import (
     GROUPING_ANIMATION_REMOVE_TIME,
     GROUPING_ANIMATION_SPAWN_TIME,
     GROUPING_CONTENT_GROUPS_DIR,
+    GROUPING_MAX_VISIBLE_ENTITIES,
     GROUPING_MIN_SCENE_DURATION,
     GROUPING_NARRATION_DIR,
     GROUPING_TIMELINES_DIR,
@@ -36,7 +37,11 @@ from src.scene_grouping.llm_grouper import (
     deserialize_groups,
     RESOURCE_KINDS,
 )
-from src.scene_grouping.llm_entity import extract as extract_entities, EntityResult
+from src.scene_grouping.llm_entity import (
+    extract as extract_entities,
+    Entity,
+    EntityResult,
+)
 from src.narration.narrator import narrate_text, get_audio_duration
 from src.assembler.ffmpeg_merge import concat_wavs
 
@@ -48,6 +53,7 @@ WPM = GROUPING_WORDS_PER_MINUTE
 MIN_DURATION = GROUPING_MIN_SCENE_DURATION
 SPAWN_DURATION = GROUPING_ANIMATION_SPAWN_TIME
 FADE_DURATION = GROUPING_ANIMATION_REMOVE_TIME
+MAX_VISIBLE_ENTITIES = GROUPING_MAX_VISIBLE_ENTITIES
 
 
 # --- Data structures ---
@@ -408,7 +414,7 @@ def _build_paragraph_blank_scenes(group: ContentGroup, scene_id: int) -> list[Sc
 
     dur = _duration(text)
     result = extract_entities(text)
-    events = _events_for_entity_result(result, dur)
+    events = _events_for_entity_result(result, dur, voiceover=text)
 
     return [Scene(
         scene_id=scene_id,
@@ -418,13 +424,54 @@ def _build_paragraph_blank_scenes(group: ContentGroup, scene_id: int) -> list[Sc
     )]
 
 
-def _events_for_entity_result(result: EntityResult, dur: float) -> list[TimelineEvent]:
-    """Build TIMELINE events from an entity extraction result."""
+def _find_word_position(text: str, phrase: str) -> int | None:
+    """Return the word index (0-based) where `phrase` first appears in `text`.
+
+    Case-insensitive, robust to surrounding punctuation. Multi-word phrases
+    match consecutively. Returns None if not found.
+    """
+    if not phrase or not text:
+        return None
+    words = text.lower().split()
+    phrase_words = phrase.lower().split()
+    n = len(phrase_words)
+    if n == 0 or n > len(words):
+        return None
+
+    def word_match(token: str, target: str) -> bool:
+        # Strip surrounding punctuation from the token before matching
+        stripped = re.sub(r"^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$", "", token)
+        return stripped == target or target in stripped
+
+    for i in range(len(words) - n + 1):
+        if all(word_match(words[i + j], phrase_words[j]) for j in range(n)):
+            return i
+    return None
+
+
+def _sentence_start_word_positions(sentences: list[str]) -> list[int]:
+    """Return the word index where each sentence begins, in document order."""
+    positions: list[int] = []
+    cursor = 0
+    for s in sentences:
+        positions.append(cursor)
+        cursor += len(s.split())
+    return positions
+
+
+def _events_for_entity_result(
+    result: EntityResult, dur: float, voiceover: str = "",
+) -> list[TimelineEvent]:
+    """Build TIMELINE events from an entity extraction result.
+
+    For entity scenes, each SPAWN is anchored to its sentence's start position
+    in the narration (so visuals appear when their sentence begins), and a
+    sliding window keeps at most MAX_VISIBLE_ENTITIES on screen — the oldest
+    one fades out just before a new entity arrives that would exceed the cap.
+    """
     fade_at = round(dur - FADE_DURATION, 1)
 
     if result.type == "quote":
-        # Attribution is narrated via voiceover — no need to show separately.
-        # Including attribution in the quote text would require separate positioning.
         events = [
             TimelineEvent(time=0.0, action="SHOW_QUOTE", target=result.text, duration=fade_at),
             TimelineEvent(time=fade_at, action="FADE", target="*", duration=FADE_DURATION),
@@ -432,28 +479,73 @@ def _events_for_entity_result(result: EntityResult, dur: float) -> list[Timeline
         return events
 
     if result.type == "entities":
-        events = []
-        # Spawn entities staggered over the first 20% of the scene
-        spawn_window = max(SPAWN_DURATION, dur * 0.2)
-        gap = spawn_window / max(len(result.spawns), 1)
-        for i, entity in enumerate(result.spawns):
+        events: list[TimelineEvent] = []
+        sentences = result.sentences or [voiceover]
+        total_words = max(1, len(voiceover.split()))
+        sentence_starts = _sentence_start_word_positions(sentences)
+
+        def time_for_sentence(idx: int) -> float:
+            idx = max(0, min(idx, len(sentence_starts) - 1)) if sentence_starts else 0
+            wpos = sentence_starts[idx] if sentence_starts else 0
+            t = (wpos / total_words) * dur
+            return round(min(t, fade_at - SPAWN_DURATION), 2)
+
+        # Group entities by sentence — preserve LLM order within each sentence
+        ents_by_sentence: dict[int, list[Entity]] = {}
+        for e in result.entities:
+            ents_by_sentence.setdefault(e.sentence, []).append(e)
+
+        # Build the SPAWN sequence. Within a sentence, stagger entities slightly
+        # so they don't all appear at the exact same instant (looks better when
+        # the sliding window is active).
+        spawn_times: dict[str, float] = {}
+        ordered_spawns: list[tuple[float, Entity]] = []
+        for sidx in sorted(ents_by_sentence.keys()):
+            base_t = time_for_sentence(sidx)
+            for offset, e in enumerate(ents_by_sentence[sidx]):
+                t = round(min(base_t + offset * SPAWN_DURATION, fade_at - SPAWN_DURATION), 2)
+                ordered_spawns.append((t, e))
+                spawn_times[e.name.lower()] = t
+
+        # Sliding-window eviction: at most MAX_VISIBLE_ENTITIES on screen.
+        # When the cap would be exceeded, fade the oldest entity just before
+        # the next SPAWN arrives.
+        visible: list[str] = []  # entity names in spawn order (oldest first)
+        for spawn_t, e in ordered_spawns:
+            if len(visible) >= MAX_VISIBLE_ENTITIES:
+                oldest = visible.pop(0)
+                fade_t = round(max(0.0, spawn_t - 0.05), 2)
+                events.append(TimelineEvent(
+                    time=fade_t,
+                    action="FADE",
+                    target=oldest,
+                    duration=FADE_DURATION,
+                ))
             events.append(TimelineEvent(
-                time=round(i * gap, 1),
+                time=spawn_t,
                 action="SPAWN",
-                target=entity,
+                target=f"{e.name}|||{e.kind}",
                 duration=SPAWN_DURATION,
             ))
-        # Draw arrows after spawns complete
-        arrow_start = round(spawn_window, 1)
-        for i, arrow in enumerate(result.arrows):
+            visible.append(e.name)
+
+        # Arrows fire right after BOTH endpoints have spawned.
+        for arrow in result.arrows:
+            from_t = spawn_times.get(arrow["from"].lower())
+            to_t = spawn_times.get(arrow["to"].lower())
+            if from_t is None or to_t is None:
+                continue
+            arrow_t = round(min(max(from_t, to_t) + SPAWN_DURATION, fade_at - 1.5), 2)
             target = f'{arrow["from"]} --[{arrow["verb"]}]--> {arrow["to"]}'
             events.append(TimelineEvent(
-                time=round(arrow_start + i * 0.5, 1),
+                time=arrow_t,
                 action="ARROW",
                 target=target,
                 duration=1.5,
             ))
+
         events.append(TimelineEvent(time=fade_at, action="FADE", target="*", duration=FADE_DURATION))
+        events.sort(key=lambda e: e.time)
         return events
 
     # abstract → blank screen

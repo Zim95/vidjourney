@@ -27,7 +27,7 @@ from src.config.constants import (
     GROUPING_LIST_ITEM_SPACING,
     GROUPING_LIST_ITEM_TARGET_WIDTH,
 )
-from src.icons.icon_downloader import icon_path
+from src.icons.icon_downloader import icon_path, download_icon
 
 
 TIMELINES_DIR = GROUPING_TIMELINES_DIR
@@ -66,6 +66,7 @@ def _sanitize_ident(name: str, suffix: int = 0) -> str:
 
 
 def _grid_positions(count: int) -> list[tuple[float, float]]:
+    """Legacy fixed-grid layout — kept for non-entity SPAWN flows."""
     if count == 0:
         return []
     if count == 1:
@@ -83,6 +84,69 @@ def _grid_positions(count: int) -> list[tuple[float, float]]:
         x = round(CANVAS_X_MIN + (col + 1) * x_step, 1)
         y = round(CANVAS_Y_MAX - (row + 1) * y_step, 1)
         positions.append((x, y))
+    return positions
+
+
+# Per-character horizontal width for bold Arial scaled to text_height ~0.7.
+# Empirical fit to Manim's Text rendering — slightly conservative.
+_CHAR_WIDTH_AT_TEXT_HEIGHT_07 = 0.45
+
+
+def _estimate_entity_width(name: str, kind: str, has_icon: bool) -> float:
+    """Estimate the rendered width (manim units) of an entity at SPAWN time."""
+    if has_icon:
+        # Image element with SIZE 2.0 — width is at most 2.0 manim units
+        return 2.0
+    chars = len(name)
+    if kind == "action":
+        chars += 2  # leading "▸ " marker
+    text_width = chars * _CHAR_WIDTH_AT_TEXT_HEIGHT_07
+    # Match shape min_width and padding from shape_objects.py (min_width=2.5, padding_x=0.3)
+    return max(2.5, text_width + 0.6)
+
+
+def _pack_positions(widths: list[float], canvas_width: float,
+                    canvas_y_min: float, canvas_y_max: float,
+                    gap: float = 0.5) -> list[tuple[float, float]]:
+    """Pack entities into rows that fit within canvas_width, centered.
+
+    Greedy line-breaking: append items to the current row until the next item
+    would exceed canvas_width, then wrap. Each row is centered horizontally;
+    rows are evenly distributed vertically.
+    """
+    if not widths:
+        return []
+
+    # Build rows
+    rows: list[list[float]] = []
+    current_row: list[float] = []
+    current_total = 0.0
+    for w in widths:
+        prospective = current_total + (gap if current_row else 0) + w
+        if current_row and prospective > canvas_width:
+            rows.append(current_row)
+            current_row = [w]
+            current_total = w
+        else:
+            current_row.append(w)
+            current_total = prospective
+    if current_row:
+        rows.append(current_row)
+
+    n_rows = len(rows)
+    canvas_height = canvas_y_max - canvas_y_min
+    y_step = canvas_height / (n_rows + 1)
+
+    positions: list[tuple[float, float]] = []
+    for row_idx, row_widths in enumerate(rows):
+        row_total = sum(row_widths) + gap * (len(row_widths) - 1)
+        x_cursor = -row_total / 2
+        y = round(canvas_y_max - (row_idx + 1) * y_step, 2)
+        for w in row_widths:
+            cx = round(x_cursor + w / 2, 2)
+            positions.append((cx, y))
+            x_cursor += w + gap
+
     return positions
 
 
@@ -145,9 +209,36 @@ def _compile_events(events: list[dict]) -> str:
     color_idx = 0
     arrow_count = 0
 
-    # First pass: count spawns to determine grid positions
+    # First pass: resolve each SPAWN event's metadata, then width-aware-pack
+    # them into rows that fit within the canvas.
     spawn_events = [e for e in events if e["action"] == "SPAWN"]
-    positions = _grid_positions(len(spawn_events))
+    spawn_meta: list[dict] = []
+    for ev in spawn_events:
+        raw = ev["target"]
+        parts = raw.split("|||")
+        name = parts[0].strip()
+        kind = parts[1].strip().lower() if len(parts) > 1 else "concrete"
+        has_icon = False
+        if kind == "concrete":
+            svg = icon_path(name)
+            if not svg.exists():
+                download_icon(name)
+            has_icon = svg.exists()
+        spawn_meta.append({
+            "name": name,
+            "kind": kind,
+            "has_icon": has_icon,
+            "width": _estimate_entity_width(name, kind, has_icon),
+        })
+
+    canvas_width = CANVAS_X_MAX - CANVAS_X_MIN
+    positions = _pack_positions(
+        [m["width"] for m in spawn_meta],
+        canvas_width=canvas_width,
+        canvas_y_min=CANVAS_Y_MIN,
+        canvas_y_max=CANVAS_Y_MAX,
+        gap=0.5,
+    )
 
     # Walk events in time order
     sorted_events = sorted(events, key=lambda e: e["time"])
@@ -159,11 +250,15 @@ def _compile_events(events: list[dict]) -> str:
             sequence.append(f'    WAIT {gap}')
 
         if event["action"] == "SPAWN":
-            target = event["target"]
+            spawn_idx = len(ident_by_index)
+            meta = spawn_meta[spawn_idx]
+            target = meta["name"]
+            kind = meta["kind"]
+            has_icon = meta["has_icon"]
+
             occ = target_occurrences.get(target, 0)
             target_occurrences[target] = occ + 1
 
-            spawn_idx = len(ident_by_index)
             ident = _sanitize_ident(target, suffix=spawn_idx)
             ident_by_target[(target, occ)] = ident
             ident_by_index.append(ident)
@@ -172,33 +267,65 @@ def _compile_events(events: list[dict]) -> str:
             color = COLORS[color_idx % len(COLORS)]
             color_idx += 1
 
-            # check if an icon SVG exists for this entity
-            svg_path = icon_path(target)
-            if svg_path.exists():
-                elements.extend([
-                    f'ELEMENT {ident} TYPE image',
-                    f'    URL "{_escape_dsl_string(str(svg_path))}"',
-                    f'    TEXT "{_escape_dsl_string(target)}"',
-                    f'    POSITION ({x},{y})',
-                    f'    SIZE {SHAPE_SIZE}',
-                    f'    SPAWN image_popup {SPAWN_TIME}',
-                    f'    REMOVE image_popout {REMOVE_TIME}',
-                    f'END',
-                    f'',
-                ])
-            else:
+            if kind == "abstract":
+                # Bold italic text only — no box
                 elements.extend([
                     f'ELEMENT {ident} TYPE shape',
-                    f'    SHAPE auto_rect',
+                    f'    SHAPE entity_abstract',
                     f'    TEXT "{_escape_dsl_string(target)}"',
                     f'    POSITION ({x},{y})',
                     f'    SIZE {SHAPE_SIZE}',
-                    f'    FILL {color}',
                     f'    SPAWN shape_popup {SPAWN_TIME}',
                     f'    REMOVE shape_popout {REMOVE_TIME}',
                     f'END',
                     f'',
                 ])
+            elif kind == "action":
+                # Bold text with leading marker — no box
+                elements.extend([
+                    f'ELEMENT {ident} TYPE shape',
+                    f'    SHAPE entity_action',
+                    f'    TEXT "{_escape_dsl_string(target)}"',
+                    f'    POSITION ({x},{y})',
+                    f'    SIZE {SHAPE_SIZE}',
+                    f'    SPAWN shape_popup {SPAWN_TIME}',
+                    f'    REMOVE shape_popout {REMOVE_TIME}',
+                    f'END',
+                    f'',
+                ])
+            else:
+                # Concrete: icon download already attempted in the metadata pass.
+                # has_icon reflects whether the SVG is on disk now.
+                if has_icon:
+                    svg_path = icon_path(target)
+                    # Entity icons are sized via the image element's SIZE param
+                    # (ImageObject treats values < 3.0 as icon-mode and uses size
+                    # as the max dimension). 2.0 manim units gives a ~270px icon
+                    # at 1080p — alongside other entities, not full-screen.
+                    elements.extend([
+                        f'ELEMENT {ident} TYPE image',
+                        f'    URL "{_escape_dsl_string(str(svg_path))}"',
+                        f'    TEXT "{_escape_dsl_string(target)}"',
+                        f'    POSITION ({x},{y})',
+                        f'    SIZE 2.0',
+                        f'    SPAWN image_popup {SPAWN_TIME}',
+                        f'    REMOVE image_popout {REMOVE_TIME}',
+                        f'END',
+                        f'',
+                    ])
+                else:
+                    elements.extend([
+                        f'ELEMENT {ident} TYPE shape',
+                        f'    SHAPE auto_rect',
+                        f'    TEXT "{_escape_dsl_string(target)}"',
+                        f'    POSITION ({x},{y})',
+                        f'    SIZE {SHAPE_SIZE}',
+                        f'    FILL {color}',
+                        f'    SPAWN shape_popup {SPAWN_TIME}',
+                        f'    REMOVE shape_popout {REMOVE_TIME}',
+                        f'END',
+                        f'',
+                    ])
             sequence.append(f'    SPAWN {ident}')
             prev_time = event["time"]
 
@@ -374,6 +501,21 @@ def _compile_events(events: list[dict]) -> str:
                     ident_by_index.clear()
                     ident_by_target.clear()
                     target_occurrences.clear()
+            else:
+                # Close a single named entity (used for sliding-window eviction).
+                # Resolve the most-recent occurrence of `target` and emit CLOSE.
+                target_name = event["target"]
+                ident_to_close = None
+                # Find the latest (target, occ) entry whose ident is still active
+                for (t, occ) in sorted(ident_by_target.keys(), key=lambda k: -k[1]):
+                    if t == target_name and ident_by_target[(t, occ)] in ident_by_index:
+                        ident_to_close = ident_by_target[(t, occ)]
+                        del ident_by_target[(t, occ)]
+                        break
+                if ident_to_close is not None:
+                    sequence.append(f'    CLOSE {ident_to_close}')
+                    if ident_to_close in ident_by_index:
+                        ident_by_index.remove(ident_to_close)
             prev_time = event["time"]
 
         elif event["action"] == "HOLD":

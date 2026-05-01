@@ -3,7 +3,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from manim import BOLD, Circle, ITALIC, Mobject, Rectangle, Square, Text, VGroup, WHITE
+from manim import (
+    BLUE_C, BOLD, Circle, GRAY_B, ITALIC, Mobject, ORANGE,
+    Rectangle, RoundedRectangle, Square, Text, VGroup, WHITE,
+)
 
 from .object_base import ObjectBase
 
@@ -168,42 +171,103 @@ class ListItemShape(ShapeObject):
         return text
 
 
+# Default border colors per kind — kept here so all entity shapes share the convention
+ENTITY_CONCRETE_BORDER = BLUE_C
+ENTITY_ABSTRACT_BORDER = GRAY_B
+ENTITY_ACTION_BORDER = ORANGE
+
+
+def _build_pill(text: Text, min_width: float, padding_x: float,
+                padding_y: float, border_color, fill_color, corner_radius: float) -> Mobject:
+    """Shared helper: text inside a rounded-corner rectangle, returned as a VGroup."""
+    width = max(text.width + padding_x * 2, min_width)
+    height = text.height + padding_y * 2
+    box = RoundedRectangle(
+        width=width,
+        height=height,
+        corner_radius=corner_radius,
+        stroke_color=border_color,
+        stroke_width=4,
+    )
+    if fill_color is None:
+        box.set_fill(opacity=0)
+    else:
+        box.set_fill(fill_color, opacity=1)
+    text.move_to(box.get_center())
+    return VGroup(box, text)
+
+
 @dataclass
 class AutoRectangleShape(ShapeObject):
-    """Rectangle that auto-sizes its width to fit the text inside, with padding."""
-    min_width: float = 1.5
-    text_height: float = 0.5
-    padding_x: float = 0.5
-    padding_y: float = 0.3
+    """Concrete entity fallback — bold text inside a rounded blue-bordered pill.
+
+    Used when no Iconify icon is available for a concrete entity.
+    """
+    min_width: float = 2.5
+    text_height: float = 0.7
+    padding_x: float = 0.3
+    padding_y: float = 0.12
+    corner_radius: float = 0.2
 
     def set_size(self, size: float) -> AutoRectangleShape:
-        self.min_width = size
+        self.min_width = max(size, self.min_width)
         return self
 
     def draw(self) -> Mobject:
-        if self.text:
-            label = Text(self.text, color=self.text_color, font="Arial")
+        body = self.text or ""
+        label = Text(body, color=self.text_color, font="Arial", weight=BOLD)
+        if label.width > 0:
             label.scale_to_fit_height(self.text_height)
-        else:
-            label = None
+        border = self.border_color if self.border_color is not WHITE else ENTITY_CONCRETE_BORDER
+        result = _build_pill(label, self.min_width, self.padding_x, self.padding_y,
+                             border, self.fill_color, self.corner_radius)
+        return self._move_to_position(result)
 
-        if label is not None:
-            width = max(label.width + self.padding_x * 2, self.min_width)
-            height = label.height + self.padding_y * 2
-        else:
-            width = self.min_width
-            height = self.text_height + self.padding_y * 2
 
-        rectangle = Rectangle(width=width, height=height, stroke_color=self.border_color)
-        if self.fill_color is None:
-            rectangle.set_fill(opacity=0)
-        else:
-            rectangle.set_fill(self.fill_color, opacity=1)
+@dataclass
+class EntityAbstractShape(ShapeObject):
+    """Abstract concept (reliability, scalability) — bold italic text inside a rounded gray pill."""
+    min_width: float = 2.5
+    text_height: float = 0.7
+    padding_x: float = 0.3
+    padding_y: float = 0.12
+    corner_radius: float = 0.2
 
-        if label is not None:
-            label.move_to(rectangle.get_center())
-            result = VGroup(rectangle, label)
-        else:
-            result = rectangle
+    def set_size(self, size: float) -> EntityAbstractShape:
+        self.min_width = max(size, self.min_width)
+        return self
 
+    def draw(self) -> Mobject:
+        body = self.text or ""
+        label = Text(body, color=self.text_color, font="Arial", weight=BOLD, slant=ITALIC)
+        if label.width > 0:
+            label.scale_to_fit_height(self.text_height)
+        border = self.border_color if self.border_color is not WHITE else ENTITY_ABSTRACT_BORDER
+        result = _build_pill(label, self.min_width, self.padding_x, self.padding_y,
+                             border, self.fill_color, self.corner_radius)
+        return self._move_to_position(result)
+
+
+@dataclass
+class EntityActionShape(ShapeObject):
+    """Action / process (query, replicate) — bold text + ▸ marker inside a rounded orange pill."""
+    min_width: float = 2.5
+    text_height: float = 0.7
+    padding_x: float = 0.3
+    padding_y: float = 0.12
+    corner_radius: float = 0.2
+
+    def set_size(self, size: float) -> EntityActionShape:
+        self.min_width = max(size, self.min_width)
+        return self
+
+    def draw(self) -> Mobject:
+        body = self.text or ""
+        full = f"▸ {body}" if body else "▸"
+        label = Text(full, color=self.text_color, font="Arial", weight=BOLD)
+        if label.width > 0:
+            label.scale_to_fit_height(self.text_height)
+        border = self.border_color if self.border_color is not WHITE else ENTITY_ACTION_BORDER
+        result = _build_pill(label, self.min_width, self.padding_x, self.padding_y,
+                             border, self.fill_color, self.corner_radius)
         return self._move_to_position(result)

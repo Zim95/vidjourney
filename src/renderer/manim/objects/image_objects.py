@@ -19,6 +19,11 @@ CAPTION_MAX_WIDTH_RATIO = 0.9   # caption width relative to image width
 CAPTION_HEIGHT_RESERVE = 1.2    # vertical space reserved for caption + buffer
 CAPTION_MAX_LINES_RATIO = 0.1   # caption max height (fraction of frame height)
 
+# Below this size threshold (manim units), treat the image as an entity ICON
+# (small, appears alongside other entities). Above it, treat as a full-page
+# RESOURCE (book cover, figure, etc.) and fit the frame.
+ICON_SIZE_THRESHOLD = 3.0
+
 
 @dataclass
 class ImageObject(ObjectBase):
@@ -50,27 +55,41 @@ class ImageObject(ObjectBase):
 
         if image_path.suffix.lower() == ".svg":
             mobject = SVGMobject(str(image_path))
+            # Iconify SVGs use fill="currentColor" which renders invisibly on
+            # Manim's black background. Force a visible fill on every path.
+            mobject.set_fill(WHITE, opacity=1)
+            mobject.set_stroke(WHITE, opacity=1, width=0)
         else:
             mobject = ImageMobject(str(image_path))
 
-        # Fit the image within the available frame preserving aspect ratio.
-        # If a caption is provided, leave room at the bottom.
-        max_width = FRAME_WIDTH - 2 * MARGIN
-        max_height = FRAME_HEIGHT - 2 * MARGIN
-        if self.text:
-            max_height -= CAPTION_HEIGHT_RESERVE
+        # Two modes based on size:
+        # - Icon (size < ICON_SIZE_THRESHOLD): scale to size as max dimension —
+        #   small icon that appears alongside other entities.
+        # - Resource (size >= ICON_SIZE_THRESHOLD): fit within the frame minus
+        #   margin and caption reserve — full-page figure or cover.
+        is_icon = self.size < ICON_SIZE_THRESHOLD
 
-        scale = min(max_width / mobject.width, max_height / mobject.height)
-        mobject.scale(scale)
+        if is_icon:
+            scale = min(self.size / mobject.width, self.size / mobject.height)
+            mobject.scale(scale)
+            max_width = self.size  # caption width clamp uses this
+        else:
+            max_width = FRAME_WIDTH - 2 * MARGIN
+            max_height = FRAME_HEIGHT - 2 * MARGIN
+            if self.text:
+                max_height -= CAPTION_HEIGHT_RESERVE
+            scale = min(max_width / mobject.width, max_height / mobject.height)
+            mobject.scale(scale)
 
         image = self._move_to_position(mobject)
 
         if self.text is None:
             return image
 
+        # SVG icons get a label below; raster resources get a caption styled the same way.
         label = Text(self.text, color=self.text_color, font="Arial")
         label.scale_to_fit_width(min(image.width * CAPTION_MAX_WIDTH_RATIO, max_width))
-        # Clamp caption height so long captions don't overflow
+        # Clamp label height so it doesn't overwhelm the image
         max_caption_height = FRAME_HEIGHT * CAPTION_MAX_LINES_RATIO
         if label.height > max_caption_height:
             label.scale_to_fit_height(max_caption_height)

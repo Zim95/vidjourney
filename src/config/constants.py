@@ -123,6 +123,7 @@ GROUPING_ANIMATION_REMOVE_TIME = float(_cfg_text("grouping", "animation_remove_t
 # Timing
 GROUPING_WORDS_PER_MINUTE = float(_cfg_text("grouping", "words_per_minute", "150.0"))
 GROUPING_MIN_SCENE_DURATION = float(_cfg_text("grouping", "min_scene_duration", "4.0"))
+GROUPING_MAX_VISIBLE_ENTITIES = _cfg_int("grouping", "max_visible_entities", 4)
 
 # Resource (image/code_block/table) display
 GROUPING_RESOURCE_SIZE = float(_cfg_text("grouping", "resource_size", "8.0"))
