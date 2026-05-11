@@ -30,10 +30,12 @@ from .objects.image_objects import ImageObject
 from .objects.shape_objects import (
     AutoRectangleShape,
     CircleShape,
+    ConceptCardShape,
     EntityAbstractShape,
     EntityActionShape,
     HeadingShape,
     ListItemShape,
+    ListTitleShape,
     QuoteShape,
     RectangleShape,
     ShapeObject,
@@ -52,6 +54,8 @@ SHAPE_OBJECT_MAP: dict[str, Type[ShapeObject]] = {
     "text_heading": HeadingShape,
     "text_quote": QuoteShape,
     "list_item": ListItemShape,
+    "list_title": ListTitleShape,
+    "concept_card": ConceptCardShape,
     "entity_abstract": EntityAbstractShape,
     "entity_action": EntityActionShape,
 }

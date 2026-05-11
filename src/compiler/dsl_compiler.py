@@ -26,6 +26,9 @@ from src.config.constants import (
     GROUPING_LIST_ITEM_Y_TOP,
     GROUPING_LIST_ITEM_SPACING,
     GROUPING_LIST_ITEM_TARGET_WIDTH,
+    GROUPING_LIST_TITLE_Y,
+    GROUPING_LIST_TITLE_TARGET_WIDTH,
+    GROUPING_CONCEPT_CARD_BODY_TARGET_WIDTH,
 )
 from src.icons.icon_downloader import icon_path, download_icon
 
@@ -48,6 +51,9 @@ LIST_ITEM_X = GROUPING_LIST_ITEM_X
 LIST_ITEM_Y_TOP = GROUPING_LIST_ITEM_Y_TOP
 LIST_ITEM_SPACING = GROUPING_LIST_ITEM_SPACING
 LIST_ITEM_TARGET_WIDTH = GROUPING_LIST_ITEM_TARGET_WIDTH
+LIST_TITLE_Y = GROUPING_LIST_TITLE_Y
+LIST_TITLE_TARGET_WIDTH = GROUPING_LIST_TITLE_TARGET_WIDTH
+CONCEPT_CARD_TARGET_WIDTH = GROUPING_CONCEPT_CARD_BODY_TARGET_WIDTH
 
 COLORS = ["blue", "green", "red", "orange", "purple", "yellow", "teal", "pink"]
 
@@ -87,67 +93,15 @@ def _grid_positions(count: int) -> list[tuple[float, float]]:
     return positions
 
 
-# Per-character horizontal width for bold Arial scaled to text_height ~0.7.
-# Empirical fit to Manim's Text rendering — slightly conservative.
-_CHAR_WIDTH_AT_TEXT_HEIGHT_07 = 0.45
-
-
-def _estimate_entity_width(name: str, kind: str, has_icon: bool) -> float:
-    """Estimate the rendered width (manim units) of an entity at SPAWN time."""
-    if has_icon:
-        # Image element with SIZE 2.0 — width is at most 2.0 manim units
-        return 2.0
-    chars = len(name)
-    if kind == "action":
-        chars += 2  # leading "▸ " marker
-    text_width = chars * _CHAR_WIDTH_AT_TEXT_HEIGHT_07
-    # Match shape min_width and padding from shape_objects.py (min_width=2.5, padding_x=0.3)
-    return max(2.5, text_width + 0.6)
-
-
-def _pack_positions(widths: list[float], canvas_width: float,
-                    canvas_y_min: float, canvas_y_max: float,
-                    gap: float = 0.5) -> list[tuple[float, float]]:
-    """Pack entities into rows that fit within canvas_width, centered.
-
-    Greedy line-breaking: append items to the current row until the next item
-    would exceed canvas_width, then wrap. Each row is centered horizontally;
-    rows are evenly distributed vertically.
-    """
-    if not widths:
-        return []
-
-    # Build rows
-    rows: list[list[float]] = []
-    current_row: list[float] = []
-    current_total = 0.0
-    for w in widths:
-        prospective = current_total + (gap if current_row else 0) + w
-        if current_row and prospective > canvas_width:
-            rows.append(current_row)
-            current_row = [w]
-            current_total = w
-        else:
-            current_row.append(w)
-            current_total = prospective
-    if current_row:
-        rows.append(current_row)
-
-    n_rows = len(rows)
-    canvas_height = canvas_y_max - canvas_y_min
-    y_step = canvas_height / (n_rows + 1)
-
-    positions: list[tuple[float, float]] = []
-    for row_idx, row_widths in enumerate(rows):
-        row_total = sum(row_widths) + gap * (len(row_widths) - 1)
-        x_cursor = -row_total / 2
-        y = round(canvas_y_max - (row_idx + 1) * y_step, 2)
-        for w in row_widths:
-            cx = round(x_cursor + w / 2, 2)
-            positions.append((cx, y))
-            x_cursor += w + gap
-
-    return positions
+# Stable 2x2 slots for entity SPAWNs. SPAWN takes the next free slot; FADE
+# returns it to the pool; FADE * resets the pool. Entities never move once
+# placed — the eye stops chasing motion, layout becomes predictable.
+ENTITY_SLOTS: list[tuple[float, float]] = [
+    (-3.0, 1.5),  # top-left
+    (3.0, 1.5),   # top-right
+    (-3.0, -1.5), # bottom-left
+    (3.0, -1.5),  # bottom-right
+]
 
 
 def _escape_dsl_string(text: str) -> str:
@@ -204,13 +158,32 @@ def _compile_events(events: list[dict]) -> str:
     # Track SPAWN events to assign positions/idents/colors
     spawn_targets: list[str] = []
     ident_by_target: dict[tuple[str, int], str] = {}  # (target, occurrence) -> ident
-    ident_by_index: list[str] = []  # indexed by SPAWN event order
+    ident_by_index: list[str] = []  # currently-active idents (mutated by FADE)
+    pos_by_ident: dict[str, tuple[float, float]] = {}  # ident -> assigned slot pos
     target_occurrences: dict[str, int] = {}
+    spawn_counter = 0  # stable counter for indexing spawn_meta — NEVER decremented
     color_idx = 0
     arrow_count = 0
 
-    # First pass: resolve each SPAWN event's metadata, then width-aware-pack
-    # them into rows that fit within the canvas.
+    # Stable counters per element-type prefix. Used by SHOW_CONCEPT_CARD,
+    # SHOW_LIST_TITLE, SHOW_QUOTE etc. so that each emitted element gets a
+    # unique ident even when FADE * clears `ident_by_index` between events.
+    # If two elements share an ident, the Lark parser keeps only the last
+    # ELEMENT definition — every SPAWN of that ident then renders the same
+    # text. (This bit us once with stale entity SPAWNs and again with
+    # concept cards.)
+    element_counters: dict[str, int] = {}
+
+    def next_ident(prefix: str) -> str:
+        n = element_counters.get(prefix, 0)
+        element_counters[prefix] = n + 1
+        return f"{prefix}_{n}"
+
+    # Stable slot pool — FIFO of available slot indices into ENTITY_SLOTS.
+    # SPAWN pops the next free slot; FADE returns it; FADE * resets the pool.
+    free_slots: list[int] = list(range(len(ENTITY_SLOTS)))
+
+    # First pass: resolve each SPAWN event's metadata (kind + icon).
     spawn_events = [e for e in events if e["action"] == "SPAWN"]
     spawn_meta: list[dict] = []
     for ev in spawn_events:
@@ -228,17 +201,7 @@ def _compile_events(events: list[dict]) -> str:
             "name": name,
             "kind": kind,
             "has_icon": has_icon,
-            "width": _estimate_entity_width(name, kind, has_icon),
         })
-
-    canvas_width = CANVAS_X_MAX - CANVAS_X_MIN
-    positions = _pack_positions(
-        [m["width"] for m in spawn_meta],
-        canvas_width=canvas_width,
-        canvas_y_min=CANVAS_Y_MIN,
-        canvas_y_max=CANVAS_Y_MAX,
-        gap=0.5,
-    )
 
     # Walk events in time order
     sorted_events = sorted(events, key=lambda e: e["time"])
@@ -250,7 +213,8 @@ def _compile_events(events: list[dict]) -> str:
             sequence.append(f'    WAIT {gap}')
 
         if event["action"] == "SPAWN":
-            spawn_idx = len(ident_by_index)
+            spawn_idx = spawn_counter
+            spawn_counter += 1
             meta = spawn_meta[spawn_idx]
             target = meta["name"]
             kind = meta["kind"]
@@ -263,7 +227,15 @@ def _compile_events(events: list[dict]) -> str:
             ident_by_target[(target, occ)] = ident
             ident_by_index.append(ident)
 
-            x, y = positions[spawn_idx] if spawn_idx < len(positions) else (0.0, 0.0)
+            # Take next free slot. With batch-of-4 + clear, the pool should never
+            # be exhausted, but fall back to (0, 0) defensively.
+            if free_slots:
+                slot_idx = free_slots.pop(0)
+                x, y = ENTITY_SLOTS[slot_idx]
+            else:
+                x, y = 0.0, 0.0
+            pos_by_ident[ident] = (x, y)
+
             color = COLORS[color_idx % len(COLORS)]
             color_idx += 1
 
@@ -357,11 +329,9 @@ def _compile_events(events: list[dict]) -> str:
             arrow_count += 1
             arrow_ident = f"arrow_{arrow_count}"
 
-            # find positions
-            subj_spawn_idx = ident_by_index.index(subj_ident)
-            obj_spawn_idx = ident_by_index.index(obj_ident)
-            subj_pos = positions[subj_spawn_idx]
-            obj_pos = positions[obj_spawn_idx]
+            # find slot positions assigned at SPAWN time
+            subj_pos = pos_by_ident.get(subj_ident, (0.0, 0.0))
+            obj_pos = pos_by_ident.get(obj_ident, (0.0, 0.0))
 
             # offset to shape edges
             shape_half = SHAPE_SIZE / 2
@@ -416,8 +386,7 @@ def _compile_events(events: list[dict]) -> str:
             prev_time = event["time"]
 
         elif event["action"] == "SHOW_HEADING":
-            heading_idx = len([i for i in ident_by_index if i.startswith("heading_")])
-            ident = f"heading_{heading_idx}"
+            ident = next_ident("heading")
             elements.extend([
                 f'ELEMENT {ident} TYPE shape',
                 f'    SHAPE text_heading',
@@ -434,7 +403,8 @@ def _compile_events(events: list[dict]) -> str:
             prev_time = event["time"]
 
         elif event["action"] == "SHOW_LIST_ITEM":
-            li_idx = len([i for i in ident_by_index if i.startswith("listitem_")])
+            li_idx = element_counters.get("listitem", 0)
+            element_counters["listitem"] = li_idx + 1
             ident = f"listitem_{li_idx}"
             # Stack list items vertically, left-aligned (each row spaced LIST_ITEM_SPACING units)
             y = LIST_ITEM_Y_TOP - li_idx * LIST_ITEM_SPACING
@@ -454,9 +424,44 @@ def _compile_events(events: list[dict]) -> str:
             ident_by_index.append(ident)
             prev_time = event["time"]
 
+        elif event["action"] == "SHOW_LIST_TITLE":
+            ident = next_ident("listtitle")
+            elements.extend([
+                f'ELEMENT {ident} TYPE shape',
+                f'    SHAPE list_title',
+                f'    TEXT "{_escape_dsl_string(event["target"])}"',
+                f'    POSITION (0.0,{LIST_TITLE_Y})',
+                f'    SIZE {LIST_TITLE_TARGET_WIDTH}',
+                f'    SPAWN shape_popup {SPAWN_TIME}',
+                f'    REMOVE shape_popout {REMOVE_TIME}',
+                f'END',
+                f'',
+            ])
+            sequence.append(f'    SPAWN {ident}')
+            ident_by_index.append(ident)
+            prev_time = event["time"]
+
+        elif event["action"] == "SHOW_CONCEPT_CARD":
+            ident = next_ident("conceptcard")
+            # Target carries title|||body — passed through as TEXT so the
+            # ConceptCardShape can parse and render both halves.
+            elements.extend([
+                f'ELEMENT {ident} TYPE shape',
+                f'    SHAPE concept_card',
+                f'    TEXT "{_escape_dsl_string(event["target"])}"',
+                f'    POSITION (0.0,0.0)',
+                f'    SIZE {CONCEPT_CARD_TARGET_WIDTH}',
+                f'    SPAWN shape_popup {SPAWN_TIME}',
+                f'    REMOVE shape_popout {REMOVE_TIME}',
+                f'END',
+                f'',
+            ])
+            sequence.append(f'    SPAWN {ident}')
+            ident_by_index.append(ident)
+            prev_time = event["time"]
+
         elif event["action"] == "SHOW_QUOTE":
-            quote_idx = len([i for i in ident_by_index if i.startswith("quote_")])
-            ident = f"quote_{quote_idx}"
+            ident = next_ident("quote")
             elements.extend([
                 f'ELEMENT {ident} TYPE shape',
                 f'    SHAPE text_quote',
@@ -495,18 +500,17 @@ def _compile_events(events: list[dict]) -> str:
 
         elif event["action"] == "FADE":
             if event["target"] == "*":
-                # close everything spawned so far that hasn't been closed
+                # Close everything spawned so far and reset the slot pool.
                 if ident_by_index:
                     sequence.append(f'    CLOSE {", ".join(ident_by_index)}')
                     ident_by_index.clear()
                     ident_by_target.clear()
                     target_occurrences.clear()
+                free_slots[:] = list(range(len(ENTITY_SLOTS)))
             else:
-                # Close a single named entity (used for sliding-window eviction).
-                # Resolve the most-recent occurrence of `target` and emit CLOSE.
+                # Close a single named entity. Free its slot back to the pool.
                 target_name = event["target"]
                 ident_to_close = None
-                # Find the latest (target, occ) entry whose ident is still active
                 for (t, occ) in sorted(ident_by_target.keys(), key=lambda k: -k[1]):
                     if t == target_name and ident_by_target[(t, occ)] in ident_by_index:
                         ident_to_close = ident_by_target[(t, occ)]
@@ -516,6 +520,11 @@ def _compile_events(events: list[dict]) -> str:
                     sequence.append(f'    CLOSE {ident_to_close}')
                     if ident_to_close in ident_by_index:
                         ident_by_index.remove(ident_to_close)
+                    pos = pos_by_ident.pop(ident_to_close, None)
+                    if pos is not None and pos in ENTITY_SLOTS:
+                        slot_idx = ENTITY_SLOTS.index(pos)
+                        if slot_idx not in free_slots:
+                            free_slots.append(slot_idx)
             prev_time = event["time"]
 
         elif event["action"] == "HOLD":

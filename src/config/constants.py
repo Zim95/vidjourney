@@ -110,6 +110,9 @@ GROUPING_PIPER_LENGTH_SCALE = float(_cfg_text("grouping", "piper_length_scale", 
 GROUPING_NARRATION_DIR = _cfg_path("grouping", "narration_dir", "pipeline/groups/narration")
 GROUPING_OUTPUT_DIR = _cfg_path("grouping", "output_dir", "pipeline/output")
 
+# Forced alignment (faster-whisper)
+GROUPING_ALIGNER_MODEL = _cfg_text("grouping", "aligner_model", "base.en")
+
 # Canvas layout for DSL compiler
 GROUPING_CANVAS_X_MIN = float(_cfg_text("grouping", "canvas_x_min", "-5.0"))
 GROUPING_CANVAS_X_MAX = float(_cfg_text("grouping", "canvas_x_max", "5.0"))
@@ -137,6 +140,16 @@ GROUPING_LIST_ITEM_X = float(_cfg_text("grouping", "list_item_x", "-5.5"))
 GROUPING_LIST_ITEM_Y_TOP = float(_cfg_text("grouping", "list_item_y_top", "2.5"))
 GROUPING_LIST_ITEM_SPACING = float(_cfg_text("grouping", "list_item_spacing", "1.0"))
 GROUPING_LIST_ITEM_TARGET_WIDTH = float(_cfg_text("grouping", "list_item_target_width", "11.0"))
+
+# List title (display-only header for listified paragraphs)
+GROUPING_LIST_TITLE_Y = float(_cfg_text("grouping", "list_title_y", "3.2"))
+GROUPING_LIST_TITLE_TARGET_WIDTH = float(_cfg_text("grouping", "list_title_target_width", "10.0"))
+
+# Concept card layout (default visual for prose paragraphs)
+GROUPING_CONCEPT_CARD_TITLE_Y = float(_cfg_text("grouping", "concept_card_title_y", "1.6"))
+GROUPING_CONCEPT_CARD_BODY_Y = float(_cfg_text("grouping", "concept_card_body_y", "-0.2"))
+GROUPING_CONCEPT_CARD_TITLE_HEIGHT = float(_cfg_text("grouping", "concept_card_title_height", "0.9"))
+GROUPING_CONCEPT_CARD_BODY_TARGET_WIDTH = float(_cfg_text("grouping", "concept_card_body_target_width", "11.0"))
 
 # Renderer
 GROUPING_RENDER_DIR = _cfg_path("grouping", "render_dir", "pipeline/render")

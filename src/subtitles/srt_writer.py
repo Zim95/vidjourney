@@ -5,11 +5,14 @@ Reads a timeline file and produces a .srt for the scene. The voiceover is split
 into short readable cards (~CHUNK_WORDS each).
 
 Time source priority:
-1. Actual scene narration WAV duration (when the .wav exists in the narration
-   dir) — keeps subtitles in lockstep with what ffmpeg's -shortest will play.
+1. Forced-alignment sidecar (`<wav>.alignment.json`) — word-level Whisper
+   timestamps. Each card snaps to its first/last word's real spoken time, so
+   no drift accumulates.
 2. Per-segment durations from a `<timeline>.parts.json` sidecar (list scenes
    only) — anchors each card to its segment's measured window.
-3. Timeline `TOTAL_DURATION` field as a final fallback (estimated by word count).
+3. Actual scene narration WAV duration — keeps the scene total synced even
+   without per-word alignment.
+4. Timeline `TOTAL_DURATION` field as a final fallback (estimated by word count).
 
 Soft-hyphenation artifacts from PDF extraction are cleaned up.
 """
@@ -23,6 +26,7 @@ from src.config.constants import (
     SUBTITLE_CHUNK_WORDS as CHUNK_WORDS,
     SUBTITLE_MAX_CHARS_PER_LINE as MAX_CHARS_PER_LINE,
 )
+from src.narration.aligner import load_alignment
 
 
 def _format_time(seconds: float) -> str:
@@ -143,6 +147,110 @@ def _format_card(idx: int, start: float, end: float, text: str) -> str:
     )
 
 
+def _normalize_word(token: str) -> str:
+    """Lowercase + strip surrounding punctuation. Used to match a card word
+    against an alignment word, since Whisper sometimes attaches punctuation."""
+    return re.sub(r"^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$", "", token.lower())
+
+
+def _align_cards_to_words(
+    cards: list[tuple[str, int]],
+    alignment: list[dict],
+    fallback_dur: float,
+) -> list[tuple[float, float, str]]:
+    """Walk cards alongside the alignment, snapping each card's [start, end]
+    to its first/last word's real spoken timestamps.
+
+    Windowed cursor: only searches a small window forward from the cursor for
+    each target word. Whisper transcriptions often differ from the script in
+    minor ways ("services" vs "service's", added "where", dropped "or"), and
+    an unbounded search would compound those into runaway cursor drift. The
+    window keeps matching local — unmatched words are skipped without moving
+    the cursor, and the next matching word resumes alignment.
+
+    If a whole card has no matches, fall back to a small bridge from last_end.
+    """
+    cursor = 0
+    aligned_cards: list[tuple[float, float, str]] = []
+    last_end = 0.0
+    n = len(alignment)
+    window = 10  # how far ahead to search for each target word
+
+    def find_next(target: str, start: int) -> int | None:
+        """Return index of next alignment word matching `target` within window."""
+        end = min(start + window, n)
+        for k in range(start, end):
+            if _normalize_word(alignment[k]["word"]) == target:
+                return k
+        return None
+
+    for card_idx, (text, _wc) in enumerate(cards):
+        words = [_normalize_word(w) for w in text.split() if _normalize_word(w)]
+        if not words:
+            continue
+
+        first_match = None
+        last_match = None
+        for w in words:
+            idx = find_next(w, cursor)
+            if idx is None:
+                continue
+            if first_match is None:
+                first_match = idx
+            last_match = idx
+            cursor = idx + 1
+
+        if first_match is not None and last_match is not None:
+            start = float(alignment[first_match]["start"])
+            end = float(alignment[last_match]["end"])
+            # Guard against zero-length cards (single-word match where start==end)
+            if end <= start:
+                end = start + 0.3
+            last_end = end
+            aligned_cards.append((start, end, text))
+        else:
+            # Card had no matching words — bridge from last_end with a small
+            # estimated duration so the card still appears.
+            est = max(0.4, fallback_dur * len(words) / 200.0)
+            aligned_cards.append((last_end, last_end + est, text))
+            last_end += est
+
+    return aligned_cards
+
+
+def _smooth_card_timings(
+    cards: list[tuple[float, float, str]],
+    scene_dur: float,
+    min_dwell: float = 0.8,
+    inter_card_gap: float = 0.0,
+) -> list[tuple[float, float, str]]:
+    """Post-process card timings to remove flicker and tight reading windows.
+
+    Two adjustments per card:
+    1. Each card's end is extended so the next card starts immediately after
+       (no blank flashes between cards).
+    2. Each card stays on screen for at least `min_dwell` seconds, even if the
+       audio rushes through the words. Last card extends to scene_dur.
+
+    Cards' start times are NOT adjusted — visuals still appear in sync with
+    the spoken first word. Only the end (display dwell) gets stretched.
+    """
+    if not cards:
+        return cards
+    smoothed: list[tuple[float, float, str]] = []
+    for i, (start, end, text) in enumerate(cards):
+        if i + 1 < len(cards):
+            next_start = cards[i + 1][0]
+            target_end = max(end, next_start - inter_card_gap)
+            target_end = max(target_end, start + min_dwell)
+            target_end = min(target_end, next_start - 0.001)  # never overlap next
+        else:
+            # Last card: extend to scene end (or at least min_dwell)
+            target_end = max(end, start + min_dwell, scene_dur - 0.05)
+        smoothed.append((start, target_end, text))
+    return smoothed
+
+
 def _read_parts_sidecar(timeline_path: Path) -> list[dict] | None:
     """Read the per-part durations sidecar if it exists.
 
@@ -171,12 +279,23 @@ def generate_srt(timeline_path: Path, output_srt: Path) -> Path:
         output_srt.write_text("", encoding="utf-8")
         return output_srt
 
+    wav_path = GROUPING_NARRATION_DIR / f"{timeline_path.stem}.wav"
+    alignment = load_alignment(wav_path)
     parts = _read_parts_sidecar(timeline_path)
 
     blocks: list[str] = []
     card_idx = 0
 
-    if parts:
+    if alignment:
+        # Word-level alignment: snap each card to its words' real timestamps,
+        # then smooth so cards butt against each other with min dwell time.
+        cards = _build_cards_for_segment(voiceover)
+        timed = _align_cards_to_words(cards, alignment, duration)
+        timed = _smooth_card_timings(timed, scene_dur=duration)
+        for start, end, text in timed:
+            card_idx += 1
+            blocks.append(_format_card(card_idx, start, end, text))
+    elif parts:
         # Per-segment timing: anchor each segment's cards inside its measured window
         cursor = 0.0
         for segment in parts:

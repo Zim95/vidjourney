@@ -42,7 +42,10 @@ from src.scene_grouping.llm_entity import (
     Entity,
     EntityResult,
 )
+from src.scene_grouping.llm_listify import listify as listify_paragraph
+from src.scene_grouping.llm_concept_cards import extract_cards as extract_concept_cards
 from src.narration.narrator import narrate_text, get_audio_duration
+from src.narration.aligner import align_narration
 from src.assembler.ffmpeg_merge import concat_wavs
 
 
@@ -301,11 +304,14 @@ def _build_list_scene(
     list_items: list,
     intro_resources: list,
     intro_caption_map: dict,
+    title: str = "",
 ) -> list[Scene]:
     """Shared logic: pre-narrate parts, build a single accumulating-list scene.
 
-    If intro_resources is non-empty, the first resource is shown during the intro
-    narration and faded out as the first list item appears (acts as setup imagery).
+    If `intro_resources` is non-empty, the first resource is shown during the
+    intro narration and faded out as the first list item appears (setup
+    imagery). If `title` is non-empty, it appears as a header above the bullet
+    stack starting at the first item's spawn — display-only, never narrated.
     """
     if not list_items:
         return []
@@ -358,6 +364,17 @@ def _build_list_scene(
         ))
 
     cumulative = intro_dur
+
+    # Title appears at the same instant the first bullet does — caps the bullet
+    # stack from above and persists until the scene-end FADE *.
+    if title:
+        events.append(TimelineEvent(
+            time=round(cumulative, 2),
+            action="SHOW_LIST_TITLE",
+            target=title,
+            duration=SPAWN_DURATION,
+        ))
+
     intro_dur_offset = 1 if intro_text else 0
     for i, item_el in enumerate(list_items):
         summary = (item_el.summary or _strip_bullet(item_el.text)).strip()
@@ -402,24 +419,153 @@ def _build_list_scene(
     )]
 
 
-def _build_paragraph_blank_scenes(group: ContentGroup, scene_id: int) -> list[Scene]:
+def _build_paragraph_blank_scenes(
+    group: ContentGroup, scene_id: int, section_name: str,
+) -> list[Scene]:
     """Build scenes for a paragraph with no resources/list items.
 
-    Collapses the paragraph into ONE scene and uses the LLM entity extractor
-    to populate the visuals — quote text, entity icons + arrows, or HOLD fallback.
+    Three paths, in priority order:
+
+    1. Listify — if the paragraph hides an enumeration, reroute to the list
+       scene flow with intro + accumulating bullets + title header.
+    2. Quote — direct quotations get a single SHOW_QUOTE event.
+    3. Concept cards (default) — 2-4 sequential full-frame cards each with a
+       title + body, replacing the previous icon-stream noise. The LLM picks
+       key beats in the paragraph; each card displays during its own narration
+       window. Pre-narrated per card so display and audio share one clock.
     """
     text = group.anchor.text.strip()
     if not text:
         return []
 
-    dur = _duration(text)
+    # Path 1: listify
+    listified = listify_paragraph(text)
+    if listified.should_listify():
+        items = list(listified.items)
+        if listified.outro:
+            items[-1] = type(items[-1])(
+                text=f"{items[-1].text} {listified.outro}".strip(),
+                summary=items[-1].summary,
+            )
+        return _build_list_scene(
+            scene_id=scene_id,
+            section_name=section_name,
+            intro_text=listified.intro,
+            list_items=items,
+            intro_resources=[],
+            intro_caption_map={},
+            title=listified.title,
+        )
+
+    # Path 2: quote detection (entity extractor doubles as quote classifier)
     result = extract_entities(text)
-    events = _events_for_entity_result(result, dur, voiceover=text)
+    if result.type == "quote":
+        dur = _duration(text)
+        return [Scene(
+            scene_id=scene_id,
+            voiceover=text,
+            duration=dur,
+            events=_events_for_entity_result(result, dur, voiceover=text, alignment=None),
+        )]
+
+    # Path 3: concept cards — default visual treatment for prose paragraphs.
+    return _build_concept_card_scene(text, scene_id, section_name)
+
+
+def _build_concept_card_scene(
+    paragraph_text: str, scene_id: int, section_name: str,
+) -> list[Scene]:
+    """Pick 2-4 key beats from the paragraph and present them as sequential
+    full-frame cards. Each card stays on screen during its own narration
+    portion, then fades as the next card appears.
+
+    Pre-narrates per card so we know exact durations; concatenates the WAVs
+    into the scene's narration; writes a parts.json sidecar so subtitles
+    align inside each card's measured window.
+    """
+    cards_result = extract_concept_cards(paragraph_text)
+    if not cards_result.is_valid():
+        # Hard fallback: if the LLM couldn't produce cards, emit a single
+        # holding scene that just narrates the paragraph with no visuals.
+        dur = _duration(paragraph_text)
+        scene_stem = f"timeline_{section_name}_scene_{scene_id}"
+        wav_path = GROUPING_NARRATION_DIR / f"{scene_stem}.wav"
+        narrate_text(paragraph_text, wav_path)
+        actual_dur = max(MIN_DURATION, get_audio_duration(wav_path) or dur)
+        align_narration(wav_path, paragraph_text)
+        return [Scene(
+            scene_id=scene_id,
+            voiceover=paragraph_text,
+            duration=round(actual_dur, 2),
+            events=[
+                TimelineEvent(time=0.0, action="HOLD", target="", duration=actual_dur),
+            ],
+        )]
+
+    cards = cards_result.cards
+    scene_stem = f"timeline_{section_name}_scene_{scene_id}"
+    items_dir = GROUPING_NARRATION_DIR / "items"
+    items_dir.mkdir(parents=True, exist_ok=True)
+
+    # Pre-narrate each card's text to know exact per-card durations
+    part_wavs: list[Path] = []
+    part_durations: list[float] = []
+    for i, card in enumerate(cards):
+        wav = items_dir / f"{scene_stem}_card_{i + 1}.wav"
+        narrate_text(card.text, wav)
+        part_wavs.append(wav)
+        part_durations.append(get_audio_duration(wav))
+
+    # Build sequential SHOW_CONCEPT_CARD events — each card replaces the
+    # previous one (FADE the prior, then SPAWN the next). No accumulation.
+    events: list[TimelineEvent] = []
+    cumulative = 0.0
+    for i, card in enumerate(cards):
+        if i > 0:
+            # Fade the previous card right before this one spawns
+            events.append(TimelineEvent(
+                time=round(cumulative, 2),
+                action="FADE",
+                target="*",
+                duration=FADE_DURATION,
+            ))
+        events.append(TimelineEvent(
+            time=round(cumulative, 2),
+            action="SHOW_CONCEPT_CARD",
+            target=f"{card.title}|||{card.body}",
+            duration=SPAWN_DURATION,
+        ))
+        cumulative += part_durations[i]
+
+    total_duration = round(cumulative, 2)
+    fade_at = round(total_duration - FADE_DURATION, 2)
+    events.append(TimelineEvent(time=fade_at, action="FADE", target="*", duration=FADE_DURATION))
+
+    # Concatenate per-card WAVs into the scene's narration file
+    scene_wav = GROUPING_NARRATION_DIR / f"{scene_stem}.wav"
+    if not scene_wav.exists():
+        concat_wavs(part_wavs, scene_wav)
+
+    # Run alignment on the full scene WAV so subtitle generation has word-level
+    # timestamps for the entire paragraph.
+    align_narration(scene_wav, " ".join(c.text for c in cards))
+
+    # Parts sidecar — one entry per card, used by the SRT writer to anchor
+    # subtitle chunks inside each card's measured window.
+    parts_meta = [
+        {"text": card.text, "duration": dur}
+        for card, dur in zip(cards, part_durations)
+    ]
+    sidecar_path = TIMELINES_DIR / f"{scene_stem}.parts.json"
+    sidecar_path.parent.mkdir(parents=True, exist_ok=True)
+    sidecar_path.write_text(json.dumps(parts_meta, indent=2), encoding="utf-8")
+
+    voiceover = " ".join(c.text for c in cards).strip()
 
     return [Scene(
         scene_id=scene_id,
-        voiceover=text,
-        duration=dur,
+        voiceover=voiceover,
+        duration=total_duration,
         events=events,
     )]
 
@@ -459,21 +605,92 @@ def _sentence_start_word_positions(sentences: list[str]) -> list[int]:
     return positions
 
 
+def _alignment_time_for_phrase(
+    phrase: str, alignment: list[dict], cursor: int = 0,
+) -> tuple[float, int] | None:
+    """Find the spoken start time of `phrase` in the alignment, searching from
+    `cursor` forward. Multi-word phrases must match consecutive aligned words
+    (with up to one mismatch tolerated for Whisper transcription drift).
+
+    Returns (start_time, alignment_index_after_match) or None if not found.
+    """
+    if not phrase or not alignment:
+        return None
+    norm_phrase = [
+        re.sub(r"^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$", "", w.lower())
+        for w in phrase.split()
+    ]
+    norm_phrase = [w for w in norm_phrase if w]
+    if not norm_phrase:
+        return None
+
+    n = len(alignment)
+    head = norm_phrase[0]
+
+    def aligned_word(i: int) -> str:
+        return re.sub(
+            r"^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$",
+            "",
+            alignment[i]["word"].lower(),
+        )
+
+    # Single-word phrase: find first match from cursor onwards.
+    if len(norm_phrase) == 1:
+        for k in range(cursor, n):
+            if aligned_word(k) == head:
+                return float(alignment[k]["start"]), k + 1
+        return None
+
+    # Multi-word: anchor on first word, then verify subsequent words match
+    # within a small forward window (Whisper occasionally splits or alters
+    # tokens — e.g. "data system" may transcribe as "data, system" or
+    # "data systems").
+    for k in range(cursor, n):
+        if aligned_word(k) != head:
+            continue
+        ok = True
+        idx = k + 1
+        for tail in norm_phrase[1:]:
+            # Look for tail within next ~3 alignment words
+            found = None
+            for j in range(idx, min(idx + 3, n)):
+                if aligned_word(j) == tail:
+                    found = j
+                    break
+            if found is None:
+                ok = False
+                break
+            idx = found + 1
+        if ok:
+            return float(alignment[k]["start"]), idx
+    return None
+
+
 def _events_for_entity_result(
-    result: EntityResult, dur: float, voiceover: str = "",
+    result: EntityResult,
+    dur: float,
+    voiceover: str = "",
+    alignment: list[dict] | None = None,
 ) -> list[TimelineEvent]:
     """Build TIMELINE events from an entity extraction result.
 
-    For entity scenes, each SPAWN is anchored to its sentence's start position
-    in the narration (so visuals appear when their sentence begins), and a
-    sliding window keeps at most MAX_VISIBLE_ENTITIES on screen — the oldest
-    one fades out just before a new entity arrives that would exceed the cap.
+    Entity SPAWNs are anchored to alignment word times when available — each
+    entity appears exactly when the narrator says its name. When alignment is
+    missing or doesn't contain a given entity, fall back to sentence-start
+    estimates.
+
+    Layout uses **batch-of-4 + clear** semantics: spawn up to MAX_VISIBLE_ENTITIES
+    consecutively, then FADE * to clear the canvas before the next batch's
+    first SPAWN. No mid-batch eviction churn — the eye sees groups, not motion.
     """
     fade_at = round(dur - FADE_DURATION, 1)
 
     if result.type == "quote":
+        # Encode "<quote>|||<attribution>" so QuoteShape can render both halves.
+        # Attribution may be empty (single-quote scenes); the shape handles that.
+        target = result.text if not result.attribution else f"{result.text}|||{result.attribution}"
         events = [
-            TimelineEvent(time=0.0, action="SHOW_QUOTE", target=result.text, duration=fade_at),
+            TimelineEvent(time=0.0, action="SHOW_QUOTE", target=target, duration=fade_at),
             TimelineEvent(time=fade_at, action="FADE", target="*", duration=FADE_DURATION),
         ]
         return events
@@ -484,56 +701,98 @@ def _events_for_entity_result(
         total_words = max(1, len(voiceover.split()))
         sentence_starts = _sentence_start_word_positions(sentences)
 
-        def time_for_sentence(idx: int) -> float:
+        def estimated_time_for_sentence(idx: int) -> float:
             idx = max(0, min(idx, len(sentence_starts) - 1)) if sentence_starts else 0
             wpos = sentence_starts[idx] if sentence_starts else 0
             t = (wpos / total_words) * dur
             return round(min(t, fade_at - SPAWN_DURATION), 2)
 
-        # Group entities by sentence — preserve LLM order within each sentence
+        # Resolve a SPAWN time for each entity. Walk entities in (sentence, order)
+        # and try alignment lookup first; fall back to sentence-position estimate.
+        # Maintain a cursor into the alignment so subsequent lookups search forward
+        # — handles entities whose names appear multiple times in the paragraph.
+        ordered_entities: list[Entity] = []
         ents_by_sentence: dict[int, list[Entity]] = {}
         for e in result.entities:
             ents_by_sentence.setdefault(e.sentence, []).append(e)
+        for sidx in sorted(ents_by_sentence.keys()):
+            ordered_entities.extend(ents_by_sentence[sidx])
 
-        # Build the SPAWN sequence. Within a sentence, stagger entities slightly
-        # so they don't all appear at the exact same instant (looks better when
-        # the sliding window is active).
         spawn_times: dict[str, float] = {}
         ordered_spawns: list[tuple[float, Entity]] = []
-        for sidx in sorted(ents_by_sentence.keys()):
-            base_t = time_for_sentence(sidx)
-            for offset, e in enumerate(ents_by_sentence[sidx]):
-                t = round(min(base_t + offset * SPAWN_DURATION, fade_at - SPAWN_DURATION), 2)
-                ordered_spawns.append((t, e))
-                spawn_times[e.name.lower()] = t
+        align_cursor = 0
+        last_sentence_seen = -1
+        for e in ordered_entities:
+            t: float | None = None
+            if alignment:
+                hit = _alignment_time_for_phrase(e.name, alignment, align_cursor)
+                if hit is not None:
+                    t, align_cursor = hit
 
-        # Sliding-window eviction: at most MAX_VISIBLE_ENTITIES on screen.
-        # When the cap would be exceeded, fade the oldest entity just before
-        # the next SPAWN arrives.
-        visible: list[str] = []  # entity names in spawn order (oldest first)
-        for spawn_t, e in ordered_spawns:
-            if len(visible) >= MAX_VISIBLE_ENTITIES:
-                oldest = visible.pop(0)
-                fade_t = round(max(0.0, spawn_t - 0.05), 2)
+            if t is None:
+                # Fallback: sentence-position estimate, staggered within sentence.
+                base_t = estimated_time_for_sentence(e.sentence)
+                if e.sentence != last_sentence_seen:
+                    last_sentence_seen = e.sentence
+                    stagger = 0
+                else:
+                    stagger = sum(
+                        1 for x in ordered_spawns if x[1].sentence == e.sentence
+                    )
+                t = round(min(base_t + stagger * SPAWN_DURATION, fade_at - SPAWN_DURATION), 2)
+
+            t = round(min(max(0.0, t), fade_at - SPAWN_DURATION), 2)
+            ordered_spawns.append((t, e))
+            spawn_times[e.name.lower()] = t
+
+        # Resort by time (alignment lookups can drift slightly out of LLM order)
+        ordered_spawns.sort(key=lambda x: x[0])
+
+        # Batch-of-N + clear: fill up to MAX_VISIBLE_ENTITIES, then FADE * before
+        # the next batch's first SPAWN. Stagger same-time entities within a batch
+        # so they don't all pop simultaneously.
+        for batch_start in range(0, len(ordered_spawns), MAX_VISIBLE_ENTITIES):
+            batch = ordered_spawns[batch_start : batch_start + MAX_VISIBLE_ENTITIES]
+            if batch_start > 0:
+                # Clear previous batch right before the first SPAWN of this batch
+                clear_t = round(max(0.0, batch[0][0] - 0.05), 2)
                 events.append(TimelineEvent(
-                    time=fade_t,
+                    time=clear_t,
                     action="FADE",
-                    target=oldest,
+                    target="*",
                     duration=FADE_DURATION,
                 ))
-            events.append(TimelineEvent(
-                time=spawn_t,
-                action="SPAWN",
-                target=f"{e.name}|||{e.kind}",
-                duration=SPAWN_DURATION,
-            ))
-            visible.append(e.name)
 
-        # Arrows fire right after BOTH endpoints have spawned.
+            seen_at_t: dict[float, int] = {}
+            for spawn_t, e in batch:
+                # Stagger entities that share a SPAWN time
+                offset = seen_at_t.get(spawn_t, 0)
+                seen_at_t[spawn_t] = offset + 1
+                t = round(
+                    min(spawn_t + offset * SPAWN_DURATION, fade_at - SPAWN_DURATION),
+                    2,
+                )
+                events.append(TimelineEvent(
+                    time=t,
+                    action="SPAWN",
+                    target=f"{e.name}|||{e.kind}",
+                    duration=SPAWN_DURATION,
+                ))
+
+        # Arrows fire right after BOTH endpoints have spawned (and only if
+        # both are still in the same batch — otherwise FADE * has cleared one).
+        # Compute batch index per ident.
+        batch_of_ident: dict[str, int] = {}
+        for i, (_, e) in enumerate(ordered_spawns):
+            batch_of_ident[e.name.lower()] = i // MAX_VISIBLE_ENTITIES
         for arrow in result.arrows:
-            from_t = spawn_times.get(arrow["from"].lower())
-            to_t = spawn_times.get(arrow["to"].lower())
+            f_lo = arrow["from"].lower()
+            t_lo = arrow["to"].lower()
+            from_t = spawn_times.get(f_lo)
+            to_t = spawn_times.get(t_lo)
             if from_t is None or to_t is None:
+                continue
+            if batch_of_ident.get(f_lo) != batch_of_ident.get(t_lo):
                 continue
             arrow_t = round(min(max(from_t, to_t) + SPAWN_DURATION, fade_at - 1.5), 2)
             target = f'{arrow["from"]} --[{arrow["verb"]}]--> {arrow["to"]}'
@@ -589,7 +848,7 @@ def build_timeline(groups: list[ContentGroup], section_name: str = "section") ->
             elif group.resources:
                 new_scenes = _build_paragraph_resource_scenes(group, scene_id)
             else:
-                new_scenes = _build_paragraph_blank_scenes(group, scene_id)
+                new_scenes = _build_paragraph_blank_scenes(group, scene_id, section_name)
         elif group.kind in ("image", "code_block", "table"):
             # Dangling resources (no paragraph context) are skipped — they produce
             # either silent holds or narrate-the-caption scenes that lack the

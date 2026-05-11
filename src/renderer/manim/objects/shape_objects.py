@@ -128,19 +128,79 @@ class HeadingShape(ShapeObject):
 
 @dataclass
 class QuoteShape(ShapeObject):
-    """Italic white text wrapped in quotes, no background."""
+    """Italic white quote with optional attribution below.
+
+    Renders:
+        "<quote text>"
+                    — <author>, <other info>
+
+    `text` carries either just the quote, or "<quote>|||<attribution>". When
+    attribution is present, the quote is shown on top centered, and the
+    attribution sits below right-aligned with a leading em-dash.
+    """
     target_width: float = 10.0
+    attribution_height: float = 0.45
 
     def set_size(self, size: float) -> QuoteShape:
         self.target_width = size
         return self
 
+    def _wrap_quote(self, text: str, max_chars: int = 56) -> str:
+        """Soft-wrap quote text so very long quotes break into multiple lines."""
+        words = text.split()
+        lines: list[str] = []
+        line: list[str] = []
+        line_len = 0
+        for w in words:
+            if line and line_len + len(w) + 1 > max_chars:
+                lines.append(" ".join(line))
+                line = [w]
+                line_len = len(w)
+            else:
+                line.append(w)
+                line_len += len(w) + (1 if len(line) > 1 else 0)
+        if line:
+            lines.append(" ".join(line))
+        return "\n".join(lines)
+
     def draw(self) -> Mobject:
-        quoted = f'"{self.text}"' if self.text else ""
-        text = Text(quoted, color=self.text_color, slant=ITALIC, font="Arial")
-        if text.width > 0:
-            text.scale_to_fit_width(self.target_width)
-        return self._move_to_position(text)
+        raw = self.text or ""
+        if "|||" in raw:
+            quote_str, attribution = raw.split("|||", 1)
+        else:
+            quote_str, attribution = raw, ""
+        quote_str = quote_str.strip().strip('"')
+        attribution = attribution.strip()
+
+        if not quote_str:
+            return self._move_to_position(Text("", color=self.text_color))
+
+        # The quote — italic, wrapped, centered
+        wrapped = self._wrap_quote(quote_str)
+        quoted_display = f'"{wrapped}"'
+        quote_text = Text(quoted_display, color=self.text_color, slant=ITALIC, font="Arial")
+        if quote_text.width > self.target_width:
+            quote_text.scale_to_fit_width(self.target_width)
+
+        if not attribution:
+            return self._move_to_position(quote_text)
+
+        # Attribution — em-dash + author info, smaller, sits below the quote
+        attribution_display = f"— {attribution}"
+        attr_text = Text(attribution_display, color=self.text_color, slant=ITALIC, font="Arial")
+        attr_text.scale_to_fit_height(self.attribution_height)
+        if attr_text.width > self.target_width * 0.7:
+            attr_text.scale_to_fit_width(self.target_width * 0.7)
+
+        # Stack: quote on top, attribution below, slight gap between
+        target_x, target_y = self.position
+        gap = 0.3
+        quote_text.move_to([target_x, target_y + (attr_text.height + gap) / 2, 0])
+        # Right-align the attribution under the quote's right edge
+        attr_x = target_x + quote_text.width / 2
+        attr_text.move_to([attr_x - attr_text.width / 2, target_y - (quote_text.height + gap) / 2, 0])
+
+        return VGroup(quote_text, attr_text)
 
 
 @dataclass
@@ -169,6 +229,98 @@ class ListItemShape(ShapeObject):
         target_x, target_y = self.position
         text.move_to([target_x + text.width / 2, target_y, 0])
         return text
+
+
+@dataclass
+class ConceptCardShape(ShapeObject):
+    """Full-frame concept card — bold title at top + multi-line body below.
+
+    `text` carries "title|||body". Title sits near the top, body wraps to fit
+    within `target_width` and stacks below the title. Used as the default
+    visual for prose paragraphs that don't listify and aren't quotes.
+
+    The card is centered around `position` (typically (0,0)) so the title is
+    above center and the body is below it.
+    """
+    target_width: float = 11.0
+    title_height: float = 0.9
+    body_text_height: float = 0.45
+    title_y_offset: float = 1.6   # vertical offset from card center to title baseline
+    body_y_offset: float = -0.2   # vertical offset from card center to body top
+
+    def set_size(self, size: float) -> ConceptCardShape:
+        self.target_width = size
+        return self
+
+    def _wrap_body(self, body: str, max_chars: int = 60) -> str:
+        """Soft-wrap body text into ~max_chars lines for display."""
+        words = body.split()
+        lines: list[str] = []
+        line: list[str] = []
+        line_len = 0
+        for w in words:
+            if line and line_len + len(w) + 1 > max_chars:
+                lines.append(" ".join(line))
+                line = [w]
+                line_len = len(w)
+            else:
+                line.append(w)
+                line_len += len(w) + (1 if len(line) > 1 else 0)
+        if line:
+            lines.append(" ".join(line))
+        return "\n".join(lines)
+
+    def draw(self) -> Mobject:
+        raw = self.text or ""
+        if "|||" in raw:
+            title_str, body_str = raw.split("|||", 1)
+        else:
+            title_str, body_str = raw, ""
+        title_str = title_str.strip()
+        body_str = body_str.strip()
+
+        title = Text(title_str, color=self.text_color, font="Arial", weight=BOLD)
+        if title.width > 0:
+            title.scale_to_fit_height(self.title_height)
+            if title.width > self.target_width:
+                title.scale_to_fit_width(self.target_width)
+
+        body = Text(self._wrap_body(body_str), color=self.text_color, font="Arial")
+        if body.width > 0:
+            body.scale_to_fit_height(min(self.body_text_height * 3, body.height))  # cap height
+            if body.width > self.target_width:
+                body.scale_to_fit_width(self.target_width)
+
+        # Position title and body relative to the card's anchor (self.position)
+        target_x, target_y = self.position
+        title.move_to([target_x, target_y + self.title_y_offset, 0])
+        body.move_to([target_x, target_y + self.body_y_offset - body.height / 2, 0])
+
+        return VGroup(title, body)
+
+
+@dataclass
+class ListTitleShape(ShapeObject):
+    """Display-only header sitting above a bullet stack.
+
+    Smaller than HeadingShape (which fills the whole frame) — just enough to
+    caption "what these bullets are about". Bold, centered, no pill.
+    """
+    target_width: float = 10.0
+    text_height: float = 0.55
+
+    def set_size(self, size: float) -> ListTitleShape:
+        self.target_width = size
+        return self
+
+    def draw(self) -> Mobject:
+        body = self.text or ""
+        text = Text(body, color=self.text_color, font="Arial", weight=BOLD)
+        if text.width > 0:
+            text.scale_to_fit_height(self.text_height)
+            if text.width > self.target_width:
+                text.scale_to_fit_width(self.target_width)
+        return self._move_to_position(text)
 
 
 # Default border colors per kind — kept here so all entity shapes share the convention
