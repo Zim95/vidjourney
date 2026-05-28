@@ -6,18 +6,27 @@ For each: renders with Manim to produce silent .mp4.
 """
 import os
 import subprocess
+import threading
 from pathlib import Path
 
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
 from src.utils import logger, timer
-from src.config.constants import GROUPING_RENDER_DIR, GROUPING_MANIM_VIDEO_DIR, MANIM_QUALITY
+from src.config.constants import GROUPING_RENDER_DIR, GROUPING_MANIM_VIDEO_DIR, MANIM_PYTHON, MANIM_QUALITY
 from concurrent.futures import ThreadPoolExecutor
 
 
 RENDER_DIR = GROUPING_RENDER_DIR
 MANIM_VIDEO_DIR = GROUPING_MANIM_VIDEO_DIR
+
+# Manim caches rendered Text mobjects to media/texts/*.svg keyed by content hash.
+# When two manim subprocesses render Text at the same time, they collide on
+# read/write/unlink against the same SVG file and one of them crashes with
+# FileNotFoundError. Serializing the manim subprocess via a module-level lock
+# fixes the race. Watcher threads upstream/downstream of render still run in
+# parallel — only the manim call itself is serialized.
+_MANIM_LOCK = threading.Lock()
 
 
 @timer(label="Render manim scene")
@@ -27,16 +36,17 @@ def render_manim(render_file: Path, scene_name: str) -> Path:
     env = os.environ.copy()
     env["RENDERER_INSTRUCTIONS_FILE"] = str(render_file)
 
-    subprocess.run(
-        [
-            "python", "-m", "manim", f"-{MANIM_QUALITY}",
-            "src/renderer/manim/manim_runner.py", "ManimScene",
-            "-o", scene_name,
-        ],
-        check=True,
-        env=env,
-        capture_output=True,
-    )
+    with _MANIM_LOCK:
+        subprocess.run(
+            [
+                MANIM_PYTHON, "-m", "manim", f"-{MANIM_QUALITY}",
+                "src/renderer/manim/manim_runner.py", "ManimScene",
+                "-o", scene_name,
+            ],
+            check=True,
+            env=env,
+            capture_output=True,
+        )
 
     video_path = MANIM_VIDEO_DIR / f"{scene_name}.mp4"
     if video_path.exists():

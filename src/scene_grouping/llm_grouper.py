@@ -216,7 +216,20 @@ def parse_section(content: str) -> list[Element]:
         text = match.group(2).strip()
         elements.append(Element(kind=kind, text=text))
 
-    return elements
+    # Post-process: split paragraphs where a quote attribution like
+    # "—Alan Kay, in interview with Dr Dobb's Journal (2012)" was merged with
+    # an unrelated following paragraph. PDF extraction joins these because the
+    # attribution line has no trailing blank line in the source. Splitting
+    # here lets the quote flow through the quote display path while the
+    # follow-on prose gets its own concept-card / list treatment.
+    expanded: list[Element] = []
+    for el in elements:
+        if el.kind != "PARAGRAPH":
+            expanded.append(el)
+            continue
+        for part in _split_quote_attribution(el.text):
+            expanded.append(Element(kind="PARAGRAPH", text=part))
+    return expanded
 
 
 # --- LLM call ---
@@ -297,6 +310,35 @@ def _parse_llm_response(
                 list_indices.add(p)
 
     return associations, list_indices
+
+
+# --- Quote attribution splitting (regex) ---
+
+# Matches an em/en dash followed by a capitalized author and a "(YYYY)" year-
+# in-parens source citation, e.g. "—Alan Kay, in interview with Dr Dobb's
+# Journal (2012)". The trailing year is what reliably marks the END of the
+# attribution; without it we don't know where prose resumes, so we leave the
+# paragraph alone rather than risk a false split.
+_QUOTE_ATTRIB_SPLIT_RE = re.compile(
+    r"([—–]\s*[A-Z][^()\n]{1,150}\([12]\d{3}\)[.,]?)"
+    r"\s+(?=[A-Z][a-z])"
+)
+
+
+def _split_quote_attribution(text: str) -> list[str]:
+    """Split text on an attribution-then-new-prose boundary.
+
+    Returns [text] unchanged if no attribution-with-year pattern is found,
+    or [quote_with_attribution, following_prose] when it is. Both halves are
+    stripped; empty halves are dropped.
+    """
+    match = _QUOTE_ATTRIB_SPLIT_RE.search(text)
+    if not match:
+        return [text]
+    split_at = match.end()
+    head = text[:split_at].strip()
+    tail = text[split_at:].strip()
+    return [part for part in (head, tail) if part]
 
 
 # --- Embedded list splitting (regex) ---
@@ -593,14 +635,43 @@ def _merge_adjacent_resources(groups: list[ContentGroup]) -> list[ContentGroup]:
 
 
 SUMMARY_PROMPT = """\
-You are given a list of bullet items from a document. For each item, produce a
-short visual-display summary of 3 to 5 words.
+You are given a list of bullet items from a document. For each item, write a
+SHORT on-screen bullet in the voice of a reader taking notes — preserving the
+concrete content, not abstracting it away.
 
-Rules:
-- Each summary must capture the main idea — not a paraphrase of the whole sentence.
+Style:
+- Write the way you'd jot a note in a notebook while reading. Capture the
+  specific facts the author chose to include. Numbers, names, comparisons,
+  and key relationships MUST survive into the summary if they're in the
+  source.
+- Aim for 8 to 15 words. Compactness matters but not at the cost of losing
+  the central fact.
 - Use sentence case (capitalize first word, no trailing punctuation).
 - Do NOT use periods at the end. Do NOT add bullet markers like "•" or numbers.
-- Keep it scannable: a viewer should be able to read it in under a second.
+- KEY-TERM RULE: if the item contains a parenthesised term — e.g.
+  "(databases)", "(stream processing)", "(Apache Kafka)" — that term is the
+  canonical short label the author chose for this item. The summary MUST
+  incorporate that term as one of its words (not in parentheses, just as part
+  of the phrase). Drop the parentheses themselves; keep the term.
+
+Examples (illustrative — do not copy verbatim):
+
+Source: "Store data so that they can find it again later (databases)"
+  → "Databases store data for later retrieval"  ✓
+  → "Store data later" ✗  (drops the key term "databases")
+
+Source: "On average, a tweet is delivered to about 75 followers, so 4.6k
+         tweets per second become 345k writes per second to the home
+         timeline caches."
+  → "75 followers per tweet → 4.6k tweets/sec become 345k writes/sec"  ✓
+  → "Tweets fan out to many followers"  ✗  (drops every concrete number)
+  → "Approach 2 prefers work at write time"  ✗  (also drops the numbers)
+
+Source: "In an ideal world, the running time of a batch job is the size of
+         the dataset divided by the throughput. In practice, the running
+         time is often longer, due to skew and slow tasks."
+  → "Batch runtime: ideal = data/throughput, actual is longer from skew"  ✓
+  → "Batch job runtime issues"  ✗  (loses the formula and the reason)
 
 Items:
 {items}
@@ -611,30 +682,105 @@ Output valid JSON only:
 The summaries array must have the same length as the input items, in the same order."""
 
 
+def _first_sentence_fallback(text: str) -> str:
+    """Take the first sentence of an item as a last-ditch summary.
+
+    Better than the previous "first 5 words" fallback because it gives a
+    complete thought rather than an arbitrary clip mid-clause. Strips any
+    leading bullet markers so the result doesn't render with a stray "•".
+    """
+    cleaned = re.sub(r"^[•·\-*]\s*", "", text).strip()
+    m = re.match(r"^[^.!?\n]+[.!?]", cleaned)
+    if m:
+        return m.group(0).rstrip(".!?").strip()
+    words = cleaned.split()
+    if len(words) > 15:
+        return " ".join(words[:15])
+    return cleaned
+
+
+def _parse_summaries(response_text: str, expected: int) -> list[str] | None:
+    """Parse and validate the LLM's summary response. Returns a list of
+    ``expected`` summaries, or ``None`` if the response is malformed.
+    """
+    try:
+        data = json.loads(response_text)
+    except json.JSONDecodeError:
+        return None
+    summaries = data.get("summaries", [])
+    if not isinstance(summaries, list) or len(summaries) != expected:
+        return None
+    return [str(s).strip().rstrip(".") for s in summaries]
+
+
+def _summarize_one(item_text: str) -> str | None:
+    """Single-item retry: ask the LLM to summarize one item at a time. The
+    JSON schema is identical to the batch path but the LLM is much more
+    reliable when only producing one summary, so this is the fallback when
+    the batch call returns the wrong array length.
+    """
+    single_prompt = SUMMARY_PROMPT.format(items=f"1. {item_text}")
+    for attempt in range(1, OLLAMA_MAX_RETRIES + 1):
+        try:
+            response_text = _call_ollama(single_prompt)
+            parsed = _parse_summaries(response_text, expected=1)
+            if parsed:
+                return parsed[0]
+        except (requests.RequestException, json.JSONDecodeError, ValueError, KeyError) as exc:
+            logger.warning(
+                f"Single-item summary attempt {attempt}/{OLLAMA_MAX_RETRIES} failed: {exc}"
+            )
+    return None
+
+
 def _generate_list_item_summaries(items: list[str]) -> list[str]:
-    """Call the LLM to summarize a batch of list items. Falls back to truncation on failure."""
+    """Summarize a list of items into on-screen bullet text. Tries a batch
+    call first (one LLM round-trip for the whole list), falls back to
+    per-item calls if the batch result is malformed, and finally to the
+    first-sentence fallback if even single-item calls fail.
+
+    The cascade exists because the new note-taking SUMMARY_PROMPT is long
+    enough that local LLMs occasionally drop items or collapse the JSON
+    array into a single string. The per-item retry sidesteps that — each
+    call only needs to produce one summary, which is much more reliable.
+    """
     if not items:
         return []
+
     numbered = "\n".join(f"{i + 1}. {text}" for i, text in enumerate(items))
     prompt = SUMMARY_PROMPT.format(items=numbered)
 
     for attempt in range(1, OLLAMA_MAX_RETRIES + 1):
         try:
             response_text = _call_ollama(prompt)
-            data = json.loads(response_text)
-            summaries = data.get("summaries", [])
-            if isinstance(summaries, list) and len(summaries) == len(items):
-                return [str(s).strip().rstrip(".") for s in summaries]
+            parsed = _parse_summaries(response_text, expected=len(items))
+            if parsed:
+                return parsed
             logger.warning(
-                f"Summary count mismatch: got {len(summaries) if isinstance(summaries, list) else 'non-list'}, "
-                f"expected {len(items)}"
+                f"Batch summary count mismatch on attempt {attempt}/{OLLAMA_MAX_RETRIES}"
             )
         except (requests.RequestException, json.JSONDecodeError, ValueError, KeyError) as exc:
-            logger.warning(f"Summary attempt {attempt}/{OLLAMA_MAX_RETRIES} failed: {exc}")
+            logger.warning(f"Batch summary attempt {attempt}/{OLLAMA_MAX_RETRIES} failed: {exc}")
 
-    # Fallback: truncate each item to first ~5 words
-    logger.warning("Summary generation failed, using truncation fallback")
-    return [" ".join(t.split()[:5]) for t in items]
+    # Fallback 1: per-item retries. One LLM call per item — slower but more
+    # reliable than the batch call.
+    logger.warning(f"Batch failed; retrying {len(items)} items individually")
+    results: list[str] = []
+    n_fallback_truncated = 0
+    for item in items:
+        summary = _summarize_one(item)
+        if summary:
+            results.append(summary)
+        else:
+            # Fallback 2: first complete sentence of the source. A real
+            # thought instead of an arbitrary 5-word clip.
+            results.append(_first_sentence_fallback(item))
+            n_fallback_truncated += 1
+    if n_fallback_truncated:
+        logger.warning(
+            f"{n_fallback_truncated}/{len(items)} items fell through to first-sentence fallback"
+        )
+    return results
 
 
 def _attach_summaries_to_groups(groups: list[ContentGroup]) -> None:

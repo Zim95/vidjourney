@@ -49,14 +49,24 @@ class TimelineNarrationHandler(FileSystemEventHandler):
             logger.error(f"Narrate failed: {filepath.name} — {e}")
 
 
-def start_watcher(executor=None) -> Observer:
+def start_watcher(executor=None, observer: Observer | None = None) -> Observer:
+    """Register a TimelineNarrationHandler on `pipeline/groups/timelines/`.
+
+    If `observer` is provided, just attaches this handler to it. Useful when
+    sharing one Observer between compile and narrate (both watch the same
+    path — fsevents errors if two Observer instances watch one path).
+    """
     TIMELINES_DIR.mkdir(parents=True, exist_ok=True)
 
     _executor = executor or ThreadPoolExecutor()
     handler = TimelineNarrationHandler(executor=_executor)
-    observer = Observer()
-    observer.schedule(handler, str(TIMELINES_DIR), recursive=False)
-    observer.start()
+
+    if observer is None:
+        observer = Observer()
+        observer.schedule(handler, str(TIMELINES_DIR), recursive=False)
+        observer.start()
+    else:
+        observer.schedule(handler, str(TIMELINES_DIR), recursive=False)
     return observer
 
 

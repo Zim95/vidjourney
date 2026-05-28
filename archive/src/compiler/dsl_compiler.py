@@ -58,7 +58,44 @@ CONCEPT_CARD_TARGET_WIDTH = GROUPING_CONCEPT_CARD_BODY_TARGET_WIDTH
 COLORS = ["blue", "green", "red", "orange", "purple", "yellow", "teal", "pink"]
 
 
+_LIST_ITEM_WRAP_CHARS = 70          # mirrors ListItemShape.wrap_chars
+_LIST_ITEM_LINE_HEIGHT = 0.4        # mirrors ListItemShape.text_height (per line)
+_LIST_ITEM_GAP = 0.25               # vertical gap between adjacent bullets
+
+# Per-level bullet glyphs and indent. The user accepted level cap at 3
+# (0, 1, 2); deeper would run out of horizontal space at the current font
+# size. Glyphs vary by level so the viewer can tell nesting at a glance.
+_LIST_BULLET_BY_LEVEL = ["•", "◦", "▸"]
+_LIST_INDENT_PER_LEVEL = 0.6        # horizontal indent per nesting level (manim units)
+_LIST_ITEM_X_REDUCTION_PER_LEVEL = 0.6  # nested bullets get a slightly narrower
+                                        # target_width so wrapping kicks in earlier
+
+
 # --- Utilities ---
+
+def _count_wrapped_lines(text: str, wrap_chars: int = _LIST_ITEM_WRAP_CHARS) -> int:
+    """Count how many display lines a bullet will occupy after soft-wrap.
+
+    Must stay in lock-step with ``ListItemShape._soft_wrap`` so that the
+    cumulative y-position math down here matches the actual rendered text
+    height up there. If they drift, bullets visibly overlap (long items
+    crashing into the next bullet) or have huge gaps (short items).
+    """
+    if len(text) <= wrap_chars:
+        return 1
+    words = text.split()
+    if not words:
+        return 1
+    lines = 1
+    line_len = 0
+    for w in words:
+        if line_len and line_len + len(w) + 1 > wrap_chars:
+            lines += 1
+            line_len = len(w)
+        else:
+            line_len += len(w) + (1 if line_len else 0)
+    return lines
+
 
 def _sanitize_ident(name: str, suffix: int = 0) -> str:
     ident = re.sub(r"[^A-Za-z0-9_]", "_", name)
@@ -128,13 +165,14 @@ def _parse_timeline_file(filepath: Path) -> dict:
         if not re.match(r"[\d.]+s\s+", line):
             continue
 
-        match = re.match(r'([\d.]+)s\s+(\w+)(?:\s+"(.*?)")?\s*\(([\d.]+)s\)', line)
+        match = re.match(r'([\d.]+)s\s+(\w+)(?:\s+"(.*?)")?\s*\(([\d.]+)s\)(?:\s+LEVEL\s+(\d+))?', line)
         if match:
             events.append({
                 "time": float(match.group(1)),
                 "action": match.group(2),
                 "target": (match.group(3) or "").strip(),
                 "duration": float(match.group(4)),
+                "level": int(match.group(5)) if match.group(5) is not None else 0,
             })
 
     return {
@@ -159,6 +197,7 @@ def _compile_events(events: list[dict]) -> str:
     spawn_targets: list[str] = []
     ident_by_target: dict[tuple[str, int], str] = {}  # (target, occurrence) -> ident
     ident_by_index: list[str] = []  # currently-active idents (mutated by FADE)
+    list_state: dict = {}  # cumulative y-cursor for SHOW_LIST_ITEM; reset on FADE *
     pos_by_ident: dict[str, tuple[float, float]] = {}  # ident -> assigned slot pos
     target_occurrences: dict[str, int] = {}
     spawn_counter = 0  # stable counter for indexing spawn_meta — NEVER decremented
@@ -403,18 +442,47 @@ def _compile_events(events: list[dict]) -> str:
             prev_time = event["time"]
 
         elif event["action"] == "SHOW_LIST_ITEM":
+            # Stable counter for the ident (unique across pages so Lark doesn't
+            # collapse repeated definitions)
             li_idx = element_counters.get("listitem", 0)
             element_counters["listitem"] = li_idx + 1
             ident = f"listitem_{li_idx}"
-            # Stack list items vertically, left-aligned (each row spaced LIST_ITEM_SPACING units)
-            y = LIST_ITEM_Y_TOP - li_idx * LIST_ITEM_SPACING
-            x = LIST_ITEM_X
+
+            # Nesting: each item carries a level (0 = top, 1 = sub, 2 = sub-sub).
+            # We embed the per-level bullet glyph directly in the text so the
+            # shape doesn't need to know about levels, and we indent the x
+            # position so children sit under their parent.
+            level = max(0, min(len(_LIST_BULLET_BY_LEVEL) - 1, int(event.get("level", 0))))
+            bullet = _LIST_BULLET_BY_LEVEL[level]
+            item_summary = event["target"]
+            display_text = f"{bullet}  {item_summary}"
+            # Nested items have a slightly narrower target width so wrapping
+            # kicks in earlier (text doesn't run past where the parent text
+            # would have run).
+            target_width = max(2.0, LIST_ITEM_TARGET_WIDTH - level * _LIST_ITEM_X_REDUCTION_PER_LEVEL)
+
+            # Long bullets (multi-sentence card bodies) wrap to 2-3 lines and a
+            # fixed inter-item spacing causes overlap. Compute each item's y
+            # from the cumulative wrapped height of items already on this
+            # page. FADE * resets the cursor so each new page starts at the
+            # top again. Wrap math uses the display text including the bullet
+            # glyph so it matches what the shape will actually render.
+            wrap_lines = _count_wrapped_lines(display_text)
+            item_height = _LIST_ITEM_LINE_HEIGHT * wrap_lines
+
+            list_top = list_state.get("top", LIST_ITEM_Y_TOP)
+            # LIST_ITEM_Y_TOP marks the TOP edge of the first bullet; ListItemShape
+            # positions text by center, so shift down by half the item height.
+            y = list_top - item_height / 2
+            list_state["top"] = list_top - item_height - _LIST_ITEM_GAP
+
+            x = LIST_ITEM_X + level * _LIST_INDENT_PER_LEVEL
             elements.extend([
                 f'ELEMENT {ident} TYPE shape',
                 f'    SHAPE list_item',
-                f'    TEXT "{_escape_dsl_string(event["target"])}"',
+                f'    TEXT "{_escape_dsl_string(display_text)}"',
                 f'    POSITION ({x},{y})',
-                f'    SIZE {LIST_ITEM_TARGET_WIDTH}',
+                f'    SIZE {target_width}',
                 f'    SPAWN shape_popup {SPAWN_TIME}',
                 f'    REMOVE shape_popout {REMOVE_TIME}',
                 f'END',
@@ -507,6 +575,9 @@ def _compile_events(events: list[dict]) -> str:
                     ident_by_target.clear()
                     target_occurrences.clear()
                 free_slots[:] = list(range(len(ENTITY_SLOTS)))
+                # Reset list y-cursor so the next page's first bullet starts
+                # back at LIST_ITEM_Y_TOP.
+                list_state.pop("top", None)
             else:
                 # Close a single named entity. Free its slot back to the pool.
                 target_name = event["target"]

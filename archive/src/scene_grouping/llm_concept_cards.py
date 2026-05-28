@@ -137,11 +137,79 @@ def _parse_response(response_text: str) -> ConceptCardsResult:
     return ConceptCardsResult(cards=cards[:4])  # hard cap at 4
 
 
+def _deterministic_fallback(paragraph_text: str) -> ConceptCardsResult:
+    """When the LLM can't produce cards, split the paragraph mechanically so
+    the screen NEVER goes blank. Splits sentences into 2-3 chunks; titles
+    are derived from the first few keywords of each chunk; bodies are the
+    chunk's opening clause."""
+    import re
+
+    # Soft-clean PDF hyphens + collapse whitespace
+    cleaned = re.sub(r"[‐­]\s+", "", paragraph_text)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    sentences = [
+        s.strip() for s in re.split(r"(?<=[.!?])\s+(?=[A-Z])", cleaned)
+        if s.strip()
+    ]
+    if not sentences:
+        return ConceptCardsResult()
+
+    # Aim for 2-3 cards. If we have very few sentences, one card per sentence.
+    n_cards = 1 if len(sentences) <= 2 else (2 if len(sentences) <= 5 else 3)
+    chunk_size = max(1, len(sentences) // n_cards)
+    chunks: list[list[str]] = []
+    for i in range(0, len(sentences), chunk_size):
+        chunks.append(sentences[i : i + chunk_size])
+    # Merge tail into last chunk if we ended up with too many
+    while len(chunks) > n_cards and len(chunks) >= 2:
+        chunks[-2].extend(chunks[-1])
+        chunks.pop()
+
+    cards: list[ConceptCard] = []
+    for chunk in chunks:
+        full_text = " ".join(chunk)
+        first = chunk[0]
+        # Title: first 4-5 capitalizable words from the opening sentence
+        words = [w.strip(",.;:?!\"'()") for w in first.split() if w.strip(",.;:?!\"'()")]
+        title_words = [w for w in words[:6] if len(w) > 2][:5]
+        title = " ".join(title_words) if title_words else "Key point"
+        title = title[:1].upper() + title[1:] if title else "Key point"
+        # Body: first ~20 words of the chunk
+        body_words = chunk[0].split()
+        body = " ".join(body_words[:20])
+        if not body.endswith((".", "!", "?")):
+            body += "..."
+        cards.append(ConceptCard(text=full_text, title=title, body=body))
+
+    # ConceptCardsResult.is_valid() requires 2+ cards. If we only got 1
+    # (paragraph was very short), pad by splitting the single card's text.
+    if len(cards) == 1:
+        only = cards[0]
+        words = only.text.split()
+        if len(words) >= 8:
+            mid = len(words) // 2
+            cards = [
+                ConceptCard(
+                    text=" ".join(words[:mid]),
+                    title=only.title,
+                    body=" ".join(words[:15]) + "...",
+                ),
+                ConceptCard(
+                    text=" ".join(words[mid:]),
+                    title="Continued",
+                    body=" ".join(words[mid : mid + 15]) + "...",
+                ),
+            ]
+
+    return ConceptCardsResult(cards=cards)
+
+
 def extract_cards(paragraph_text: str) -> ConceptCardsResult:
     """Ask the LLM to break `paragraph_text` into 2-4 sequential concept cards.
 
     Returns ConceptCardsResult; check `.is_valid()` before using. On parse
-    failure, returns an empty result and the caller falls back accordingly.
+    failure or invalid response, falls back to a deterministic split so the
+    screen never goes blank.
     """
     text = (paragraph_text or "").strip()
     if not text:
@@ -163,8 +231,8 @@ def extract_cards(paragraph_text: str) -> ConceptCardsResult:
         except (requests.RequestException, json.JSONDecodeError, ValueError, KeyError) as exc:
             logger.warning(f"Concept cards attempt {attempt}/{OLLAMA_MAX_RETRIES} failed: {exc}")
 
-    logger.warning("Concept cards extraction failed; returning empty")
-    return ConceptCardsResult()
+    logger.warning("Concept cards LLM failed; using deterministic fallback")
+    return _deterministic_fallback(paragraph_text)
 
 
 if __name__ == "__main__":

@@ -51,6 +51,26 @@ def _ensure_subtitles(scene_name: str) -> Path | None:
     return srt_path if srt_path.exists() and srt_path.stat().st_size > 0 else None
 
 
+def _is_assembled_output_stale(
+    output_file: Path,
+    video_path: Path,
+    audio_path: Path,
+    srt_path: Path | None,
+) -> bool:
+    """Return True when any input is newer than the assembled output.
+
+    Without this check, re-rendering manim (or regenerating narration/srt)
+    silently produces stale section mp4s because `assemble_scene` short-
+    circuits on `output_file.exists()`. That bit us once with entity-pill
+    quote scenes that lingered after the listify/quote refactor.
+    """
+    output_mtime = output_file.stat().st_mtime
+    input_mtimes = [video_path.stat().st_mtime, audio_path.stat().st_mtime]
+    if srt_path is not None and srt_path.exists():
+        input_mtimes.append(srt_path.stat().st_mtime)
+    return max(input_mtimes) > output_mtime
+
+
 @timer(label="Assemble scene")
 def assemble_scene(scene_name: str) -> Path | None:
     """Merge audio + video for a single scene (with burned-in subtitles) if both exist."""
@@ -65,11 +85,14 @@ def assemble_scene(scene_name: str) -> Path | None:
         return None
 
     output_file = OUTPUT_DIR / f"{scene_name}.mp4"
-    if output_file.exists():
+    srt_path = _ensure_subtitles(scene_name)
+    if output_file.exists() and not _is_assembled_output_stale(
+        output_file, video_path, audio_path, srt_path,
+    ):
         logger.info(f"Already assembled: {output_file.name}")
         return output_file
-
-    srt_path = _ensure_subtitles(scene_name)
+    if output_file.exists():
+        logger.info(f"Re-assembling (inputs newer): {output_file.name}")
 
     logger.info(f"Assembling: {audio_path.name} + {video_path.name} → {scene_name}.mp4")
     return merge_audio_video(video_path, audio_path, scene_name, subtitles_path=srt_path)
@@ -158,8 +181,12 @@ def concat_section(section_name: str) -> Path | None:
 
     output_file = OUTPUT_DIR / f"{section_name}.mp4"
     if output_file.exists():
-        logger.info(f"Already concatenated: {output_file.name}")
-        return output_file
+        output_mtime = output_file.stat().st_mtime
+        if all(v.stat().st_mtime <= output_mtime for v in scene_videos):
+            logger.info(f"Already concatenated: {output_file.name}")
+            return output_file
+        logger.info(f"Scene videos newer than {output_file.name} — re-concatenating")
+        output_file.unlink()
 
     logger.info(f"Concatenating {len(scene_videos)} scenes for {section_name}...")
     return concat_videos(scene_videos, section_name)

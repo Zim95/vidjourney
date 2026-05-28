@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from manim import (
-    BLUE_C, BOLD, Circle, GRAY_B, ITALIC, Mobject, ORANGE,
+    BLUE_C, BOLD, Circle, GRAY_B, ITALIC, Mobject, NORMAL, ORANGE,
     Rectangle, RoundedRectangle, Square, Text, VGroup, WHITE,
 )
 
@@ -207,22 +207,61 @@ class QuoteShape(ShapeObject):
 class ListItemShape(ShapeObject):
     """Bullet item — left-anchored bold white text with a leading bullet.
 
+    Readability is the top priority. Text height stays CONSTANT regardless
+    of how many items are on screen — overflow is handled upstream by
+    paginating long lists into pages. Long single-item text wraps to
+    multiple lines (soft-wrap by character budget) rather than shrinking.
+
     Position represents the LEFT edge of the text, not the center, so items
     in a vertical list line up cleanly regardless of length.
     """
-    target_width: float = 11.0  # max width (clamped)
-    text_height: float = 0.5
+    target_width: float = 11.0  # max width before wrapping kicks in
+    text_height: float = 0.4    # constant; never shrunk to fit (was 0.5; user asked for slightly smaller)
+    wrap_chars: int = 70        # approximate chars-per-line for soft-wrap
 
     def set_size(self, size: float) -> ListItemShape:
         self.target_width = size
         return self
 
+    def _soft_wrap(self, text: str) -> str:
+        """Insert newlines after wrap_chars worth of content. Avoids splitting words."""
+        if len(text) <= self.wrap_chars:
+            return text
+        words = text.split()
+        lines: list[str] = []
+        line: list[str] = []
+        line_len = 0
+        for w in words:
+            if line and line_len + len(w) + 1 > self.wrap_chars:
+                lines.append(" ".join(line))
+                line = [w]
+                line_len = len(w)
+            else:
+                line.append(w)
+                line_len += len(w) + (1 if len(line) > 1 else 0)
+        if line:
+            lines.append(" ".join(line))
+        return "\n".join(lines)
+
     def draw(self) -> Mobject:
-        body = self.text or ""
-        full = f"•  {body}" if body else "•"
-        text = Text(full, color=self.text_color, font="Arial", weight=BOLD)
-        text.scale_to_fit_height(self.text_height)
-        # Clamp horizontal width if too long
+        # The DSL caller (``dsl_compiler.py``) embeds the per-level bullet
+        # glyph (``•`` / ``◦`` / ``▸``) directly in the text it passes here,
+        # so nested-list rendering doesn't need the shape to know about
+        # levels. We just wrap and render whatever we got.
+        full = self._soft_wrap(self.text or "")
+        if not full:
+            full = "•"
+        # Non-bold and slightly smaller than before (was BOLD at text_height=0.5)
+        # so the bullet rendering doesn't feel slide-shouty. Nested lists will
+        # have lots of bullets on screen and the heavier weight made the
+        # stack visually noisy.
+        text = Text(full, color=self.text_color, font="Arial", weight=NORMAL)
+        text.scale_to_fit_height(self.text_height * (full.count("\n") + 1))
+        # If the height-based scale leaves the longest wrapped line wider than
+        # ``target_width``, scale down so the bullet stays inside the canvas.
+        # Without this, soft-wrapped lines run off the right edge — the rest
+        # of the wrap math (wrap_chars, cumulative y in dsl_compiler) is
+        # height-based, so width has to be guarded explicitly here.
         if text.width > self.target_width:
             text.scale_to_fit_width(self.target_width)
         # Position represents the LEFT edge — shift so left edge sits at position.x
@@ -252,8 +291,13 @@ class ConceptCardShape(ShapeObject):
         self.target_width = size
         return self
 
-    def _wrap_body(self, body: str, max_chars: int = 60) -> str:
-        """Soft-wrap body text into ~max_chars lines for display."""
+    def _wrap_body(self, body: str, max_chars: int = 50) -> str:
+        """Soft-wrap body text into ~max_chars lines for display.
+
+        Tighter wrap-width than before so text stays legible — the body grows
+        vertically (more lines) instead of shrinking horizontally to fit one
+        line. Card content is allowed to fill more of the canvas.
+        """
         words = body.split()
         lines: list[str] = []
         line: list[str] = []
@@ -279,17 +323,25 @@ class ConceptCardShape(ShapeObject):
         title_str = title_str.strip()
         body_str = body_str.strip()
 
+        # Title — bold, single line. If it's too wide we accept a small
+        # shrink (titles are short by spec), but text never goes below ~half
+        # the configured height.
         title = Text(title_str, color=self.text_color, font="Arial", weight=BOLD)
         if title.width > 0:
             title.scale_to_fit_height(self.title_height)
             if title.width > self.target_width:
                 title.scale_to_fit_width(self.target_width)
 
-        body = Text(self._wrap_body(body_str), color=self.text_color, font="Arial")
+        # Body — KEEP TEXT SIZE CONSTANT. Wrap into multiple lines if the
+        # paragraph is long. Each line is body_text_height tall; total height
+        # grows with the number of lines, which is fine — the card is allowed
+        # to fill most of the canvas vertically.
+        wrapped = self._wrap_body(body_str)
+        body = Text(wrapped, color=self.text_color, font="Arial")
         if body.width > 0:
-            body.scale_to_fit_height(min(self.body_text_height * 3, body.height))  # cap height
-            if body.width > self.target_width:
-                body.scale_to_fit_width(self.target_width)
+            # Height per line is fixed. Total = body_text_height * line_count.
+            line_count = wrapped.count("\n") + 1
+            body.scale_to_fit_height(self.body_text_height * line_count)
 
         # Position title and body relative to the card's anchor (self.position)
         target_x, target_y = self.position

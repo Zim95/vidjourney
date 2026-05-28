@@ -72,7 +72,16 @@ class TimelineHandler(FileSystemEventHandler):
             logger.error(f"Compile failed: {filepath.name} — {e}")
 
 
-def start_watcher(executor=None) -> Observer:
+def start_watcher(executor=None, observer: Observer | None = None) -> Observer:
+    """Register a TimelineHandler on `pipeline/groups/timelines/`.
+
+    If `observer` is provided, this just attaches the handler to it (no new
+    Observer created). Useful when multiple watchers need the same path —
+    fsevents on Mac errors if two distinct Observer instances try to watch
+    the same path simultaneously, so we share one.
+
+    If `observer` is None, a new Observer is created, started, and returned.
+    """
     from concurrent.futures import ProcessPoolExecutor as _DefaultPool
     TIMELINES_DIR.mkdir(parents=True, exist_ok=True)
     SCENE_FILES_DIR.mkdir(parents=True, exist_ok=True)
@@ -80,9 +89,14 @@ def start_watcher(executor=None) -> Observer:
 
     _executor = executor or ThreadPoolExecutor()
     handler = TimelineHandler(executor=_executor)
-    observer = Observer()
-    observer.schedule(handler, str(TIMELINES_DIR), recursive=False)
-    observer.start()
+
+    if observer is None:
+        observer = Observer()
+        observer.schedule(handler, str(TIMELINES_DIR), recursive=False)
+        observer.start()
+    else:
+        # Share the caller's Observer — just attach this handler
+        observer.schedule(handler, str(TIMELINES_DIR), recursive=False)
     return observer
 
 

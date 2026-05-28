@@ -140,6 +140,7 @@ GROUPING_LIST_ITEM_X = float(_cfg_text("grouping", "list_item_x", "-5.5"))
 GROUPING_LIST_ITEM_Y_TOP = float(_cfg_text("grouping", "list_item_y_top", "2.5"))
 GROUPING_LIST_ITEM_SPACING = float(_cfg_text("grouping", "list_item_spacing", "1.0"))
 GROUPING_LIST_ITEM_TARGET_WIDTH = float(_cfg_text("grouping", "list_item_target_width", "11.0"))
+GROUPING_LIST_MAX_ITEMS_PER_PAGE = _cfg_int("grouping", "list_max_items_per_page", 4)
 
 # List title (display-only header for listified paragraphs)
 GROUPING_LIST_TITLE_Y = float(_cfg_text("grouping", "list_title_y", "3.2"))
@@ -150,6 +151,11 @@ GROUPING_CONCEPT_CARD_TITLE_Y = float(_cfg_text("grouping", "concept_card_title_
 GROUPING_CONCEPT_CARD_BODY_Y = float(_cfg_text("grouping", "concept_card_body_y", "-0.2"))
 GROUPING_CONCEPT_CARD_TITLE_HEIGHT = float(_cfg_text("grouping", "concept_card_title_height", "0.9"))
 GROUPING_CONCEPT_CARD_BODY_TARGET_WIDTH = float(_cfg_text("grouping", "concept_card_body_target_width", "11.0"))
+
+# Part packaging
+GROUPING_BOOK_TITLE = _cfg_text("grouping", "book_title", "Book")
+GROUPING_PART_MIN_DURATION_MINUTES = float(_cfg_text("grouping", "part_min_duration_minutes", "10.0"))
+GROUPING_PARTS_DIR = _cfg_path("grouping", "parts_dir", "pipeline/output/parts")
 
 # Renderer
 GROUPING_RENDER_DIR = _cfg_path("grouping", "render_dir", "pipeline/render")

@@ -1,0 +1,278 @@
+You need TWO stages
+Stage 1 — Semantic Extraction
+
+LLM extracts:
+
+concepts
+relationships
+emphasis
+pedagogy hints
+visualizability
+Stage 2 — Scene Composition
+
+Another pass decides:
+
+spatial layout
+persistent objects
+animation order
+focus transitions
+timing
+
+DO NOT merge these into one step initially.
+
+Your current ontology is good, but incomplete
+
+You have:
+
+nouns → icons
+abstract words → text boxes
+verbs → arrows
+
+Good start.
+
+You probably also need:
+
+Type	Visual
+system	container/block
+process	animated flow
+comparison	split layout
+hierarchy	tree
+sequence	timeline
+causality	directed animation
+emphasis	zoom/highlight
+state	color change
+memory/storage	persistent node
+actor	avatar/icon
+scale	graph/expansion
+conflict/tradeoff	opposing panels
+
+This becomes your “visual language.”
+
+The prompt should NOT ask for visuals directly
+
+This is the mistake most people make.
+
+Don’t ask:
+
+“Generate visuals for this paragraph.”
+
+Instead ask:
+
+“Design an educational scene composition.”
+
+That changes the behavior dramatically.
+
+Recommended architecture
+TEXT
+ ↓
+Semantic Planner (LLM)
+ ↓
+Scene IR
+ ↓
+Renderer
+What the Scene IR should look like
+
+Something like:
+
+{
+  "scene_goal": "Introduce core components of data-intensive applications",
+
+  "persistent_elements": [
+    {
+      "id": "core_app",
+      "type": "concept_hub",
+      "label": "Data-Intensive Application",
+      "position": "center"
+    }
+  ],
+
+  "supporting_elements": [
+    {
+      "id": "database",
+      "type": "system",
+      "visual": "database_icon",
+      "relation": "storage"
+    },
+    {
+      "id": "cache",
+      "type": "system",
+      "visual": "cache_icon",
+      "relation": "speed"
+    }
+  ],
+
+  "animation_plan": [
+    {
+      "time": 0,
+      "action": "fade_in",
+      "target": "core_app"
+    },
+    {
+      "time": 3,
+      "action": "reveal",
+      "target": "database"
+    }
+  ]
+}
+
+THIS is what the LLM should generate.
+
+Not HTML.
+Not video.
+Not images.
+
+Structured cinematic intent.
+
+The actual prompt strategy
+
+You want the model behaving like:
+
+an educator
+a storyboard artist
+an information designer
+
+NOT a text summarizer.
+
+Good prompting structure
+SYSTEM PROMPT
+Writing
+
+You are an educational scene planner for an automated video generation system.
+
+Your job is NOT to summarize text.
+
+Your job is to design a visually understandable educational scene.
+
+Focus on:
+
+concept hierarchy
+persistent context
+spatial organization
+progressive reveal
+cognitive simplicity
+visual grouping
+pedagogical clarity
+
+DO NOT place visuals in narration order unless pedagogically necessary.
+
+Prefer:
+
+central organizing concepts
+grouped related systems
+progressive highlighting
+stable layouts
+minimal movement
+reusable visual structures
+
+You must output valid JSON only.
+
+You are designing a scene composition, not generating a final video.
+
+USER PROMPT TEMPLATE
+Writing
+
+INPUT TEXT:
+{{paragraph}}
+
+AVAILABLE VISUAL TYPES:
+
+icon
+text_box
+container
+arrow
+timeline
+hierarchy
+highlight
+label
+comparison_panel
+animated_flow
+
+TASKS:
+
+Identify the main teaching goal.
+Identify persistent concepts that should stay onscreen.
+Group related concepts together visually.
+Decide which concepts should appear progressively.
+Design a stable spatial layout.
+Describe transitions and highlights.
+Output a scene plan JSON.
+
+OUTPUT FORMAT:
+{
+"scene_goal": "...",
+"layout_strategy": "...",
+"persistent_elements": [],
+"groups": [],
+"animation_sequence": []
+}
+
+Extremely important
+
+You need to teach the model:
+
+“Persistence”
+
+Most educational visuals work because:
+
+objects stay visible
+relationships remain stable
+only emphasis changes
+
+Not because new visuals constantly appear.
+
+This is the single biggest weakness of naive AI video systems.
+
+Another massive improvement
+
+You should classify scenes.
+
+Your paragraph types are already emerging:
+
+Scene Type	Layout Strategy
+introduction	centered hub
+comparison	split panels
+pipeline	left-to-right flow
+hierarchy	top-down
+causality	animated arrows
+timeline	sequential reveal
+tradeoff	opposing sides
+architecture	node graph
+process	step flow
+
+First determine:
+
+scene_type
+
+Then generate the layout.
+
+This massively stabilizes outputs.
+
+For your DDIA example
+
+The scene planner SHOULD infer:
+
+scene_type = ecosystem_overview
+
+NOT:
+
+sentence_sequence
+
+That distinction matters enormously.
+
+Your biggest future unlock
+
+Eventually you’ll want:
+
+Scene Memory
+
+Meaning:
+
+previous scenes influence next scenes
+icons persist
+colors persist
+terminology persists
+spatial identity persists
+
+That’s where this becomes much more than prompting.
+
+That becomes a real visual runtime system.

@@ -1,257 +1,179 @@
 # VidJourney
 
-A tool to help me study. Converts PDFs to generated Videos.
+Turn a PDF into a folder of narrated explainer videos.
 
+VidJourney ingests a PDF, extracts text + figures + code blocks, picks a
+visual treatment per paragraph (list / concept cards / quote / figure /
+heading), narrates everything with Piper TTS, renders scenes with Manim,
+burns in word-aligned subtitles, and bundles consecutive sections into
+~10-minute "Part" videos ready to publish.
+
+---
+
+## Quick start
+
+```bash
+# 1. Install dependencies (one time)
+./install.sh
+
+# 2. Run the full pipeline on a PDF
+python main.py /path/to/your.pdf
+
+# 3. Bundle the per-section videos into 10-minute Parts
+python -m src.assembler.build_video
+```
+
+Output lands in `pipeline/output/parts/`.
+
+For the full architecture (what each stage does, every file produced, every
+module), see **[ARCHITECTURE.md](ARCHITECTURE.md)**.
+
+---
 
 ## Prerequisites
 
-- Python 3.11+
-- [uv](https://docs.astral.sh/uv/) for package management
-- [Ollama](https://ollama.com) with models configured in `configuration.cfg` (default: `gemma4:e2b` for LLM, `nomic-embed-text` for embeddings)
-- [Piper TTS](https://github.com/rhasspy/piper) voice model at `~/.local/share/piper-voices/en_US-lessac-medium.onnx`
-- [ffmpeg](https://ffmpeg.org/) for audio/video merge
-- [Manim Community](https://www.manim.community/) for rendering
+- Python 3.11+ with [uv](https://docs.astral.sh/uv/)
+- [ffmpeg](https://ffmpeg.org/) **with libass** (for burned-in subtitles).
+  On Mac: `brew install homebrew-ffmpeg/ffmpeg/ffmpeg`
+- [Ollama](https://ollama.com) with `gemma4:e2b` pulled
+- [Piper TTS](https://github.com/rhasspy/piper) voice at
+  `~/.local/share/piper-voices/en_US-lessac-medium.onnx`
+- `models/code_rf.joblib` — Random Forest for code-vs-text classification.
+  Trained from labeled samples; see *ML model training* below if missing.
 
+`./install.sh` handles all of the above except the ML model.
 
-## Pipeline Overview
+---
+
+## Pipeline at a glance
 
 ```
-PDF → Ingestion → Sections
-                    ↓ (watchdog)
-                  Content Grouping (LLM)
-                    ↓ (watchdog)
-                  Compile → Render
-                    ↓                     ↓ (watchdog)
-                  Manim Video           Narration (TTS)
-                    ↓                     ↓
-                         Assemble (ffmpeg)
-                              ↓
-                        Final Video (.mp4)
+PDF
+ │
+ ▼
+[1] INGEST          extract text, figures, code, tables → pipeline/sections/
+[2] GROUP           LLM associates paragraphs with their resources
+[3] TIMELINE        LLM picks a visual treatment per paragraph (one of:
+ │                  list / concept-cards / quote / figure / heading)
+ │                  Pre-narrates + forced-aligns paragraph-blank scenes.
+[4] COMPILE         timeline → .scene DSL → render.json (Manim input)
+[5] NARRATE         TTS audio for the remaining scenes (headings, figures)
+[6] RENDER          Manim → silent mp4
+[7] SUBTITLES       SRT from voiceover + alignment word-timestamps
+[8] ASSEMBLE        ffmpeg merges silent mp4 + WAV + burns in subtitles
+[9] CONCAT          ffmpeg-concats scenes into per-section mp4
+[10] BUILD PARTS    pack consecutive sections into ≥10-min "Part" videos,
+                    LLM-named: "<Book> - Part <n> - <Summary>.mp4"
 ```
 
+Five visual treatments routed per paragraph:
 
-## Quick Start — Full Pipeline
+| Content | Treatment |
+|---|---|
+| Heading | Full-frame text card |
+| Paragraph + figure / code / table | Show the resource for the whole scene |
+| Paragraph + explicit list items | Accumulating bullets with optional setup image |
+| Paragraph with implicit enumeration (3+ parallel items, questions, steps) | Listify → bulleted list with a title header |
+| Direct quotation | `"<quote>"` + `— <attribution>` |
+| Anything else (prose) | 2-4 sequential full-frame concept cards (title + body) |
 
-Run everything with a single command. Starts all watchers, runs ingestion, and the pipeline cascades automatically.
+---
+
+## Running stages independently
+
+The pipeline is event-driven under `main.py`, but every stage also has a
+standalone CLI. Useful for partial reprocessing (e.g., rerun timelines for
+one section after a prompt change).
 
 ```bash
-uv sync
-python main.py /path/to/your.pdf
-```
-
-Press `Ctrl+C` to stop when processing is complete.
-
-
-## Running Modules Independently
-
-Each module can run standalone for testing or reprocessing.
-
-### 1. Ingestion
-
-Reads a PDF, detects elements (headings, paragraphs, code blocks, images, tables), classifies code vs text using ML, and writes section files.
-
-- Input: PDF file
-- Output: `pipeline/sections/section_*.txt` + resources (images, code block images, tables)
-
-```bash
+# Ingestion
 python -m src.ingestion.ingest_pdf /path/to/your.pdf
+
+# Group sections (LLM associates paragraphs with resources)
+python -m src.scene_grouping.group [--all|--watch|pipeline/sections/section_N.txt]
+
+# Build timelines (LLM picks visual treatments; pre-narrate + align paragraph-blank scenes)
+python -m src.scene_grouping.llm_timeline [--all|pipeline/groups/content_groups/section_N.txt]
+
+# Compile timeline → DSL → render.json
+python -m src.compiler.compile [--all|--watch|pipeline/groups/timelines/timeline_*.txt]
+
+# Narrate (heading and figure scenes — paragraph-blank ones are pre-narrated)
+python -m src.narration.narrate [--watch|pipeline/groups/timelines/timeline_*.txt|section_N]
+
+# Render with Manim (the slow stage — 30s to 3min per scene)
+python -m src.renderer.render [--all|--watch|pipeline/render/timeline_*.render.json]
+
+# Assemble (merge audio + video + subtitles per scene; --concat for full section)
+python -m src.assembler.assemble [<scene>|section_N [--concat]|--watch]
+
+# Build final ≥10-min Part videos
+python -m src.assembler.build_video [--dry-run]
 ```
 
-### 2. Content Grouping
-
-Groups section elements into content sets using an LLM (Ollama). Associates paragraphs with their related resources (images, code blocks, tables) based on semantic understanding.
-
-- Input: `pipeline/sections/section_*.txt`
-- Output: `pipeline/groups/content_groups/section_*.txt`
-
-```bash
-# Single section
-python -m src.scene_grouping.group pipeline/sections/section_3.txt
-
-# All pending sections (concurrent)
-python -m src.scene_grouping.group --all
-
-# Watch mode
-python -m src.scene_grouping.group --watch
-```
-
-You can also run the grouper directly to inspect associations:
-
-```bash
-python -m src.scene_grouping.llm_grouper pipeline/sections/section_3.txt
-python -m src.scene_grouping.llm_grouper --all
-```
-
-### 3. Compile
-
-Converts timeline files into DSL `.scene` files and `.render.json` files.
-
-- Input: `pipeline/groups/timelines/timeline_*.txt`
-- Output: `pipeline/groups/scene_files/*.scene` + `pipeline/render/*.render.json`
-
-```bash
-# Single timeline
-python -m src.compiler.compile pipeline/groups/timelines/timeline_section_2_scene_3.txt
-
-# All pending
-python -m src.compiler.compile --all
-
-# Watch mode
-python -m src.compiler.compile --watch
-```
-
-### 4. Render
-
-Renders `.render.json` files with Manim to produce silent videos.
-
-- Input: `pipeline/render/*.render.json`
-- Output: `media/videos/manim_runner/480p15/*.mp4`
-
-```bash
-# Single file
-python -m src.renderer.render pipeline/render/timeline_section_2_scene_3.render.json
-
-# All pending
-python -m src.renderer.render --all
-
-# Watch mode
-python -m src.renderer.render --watch
-```
-
-### 5. Narration
-
-Generates TTS narration audio from voiceover text using Piper.
-
-- Input: `pipeline/groups/timelines/timeline_*.txt`
-- Output: `pipeline/groups/narration/*.wav`
-
-```bash
-# Single scene
-python -m src.narration.narrate pipeline/groups/timelines/timeline_section_2_scene_3.txt
-
-# All scenes for a section
-python -m src.narration.narrate section_2
-
-# Watch mode
-python -m src.narration.narrate --watch
-```
-
-### 6. Assemble
-
-Merges narration audio (.wav) and rendered video (.mp4) into the final output using ffmpeg.
-
-- Input: `pipeline/groups/narration/*.wav` + `media/videos/manim_runner/480p15/*.mp4`
-- Output: `pipeline/output/*.mp4`
-
-```bash
-# Single scene
-python -m src.assembler.assemble timeline_section_2_scene_3
-
-# All scenes for a section
-python -m src.assembler.assemble section_2
-
-# Watch mode
-python -m src.assembler.assemble --watch
-```
-
-### Multi-terminal watch mode
-
-Start all watchers in separate terminals for full event-driven processing.
-
-```bash
-# Terminal 1: Content grouping (watches sections/)
-python -m src.scene_grouping.group --watch
-
-# Terminal 2: Compiler (watches timelines/)
-python -m src.compiler.compile --watch
-
-# Terminal 3: Renderer (watches render/)
-python -m src.renderer.render --watch
-
-# Terminal 4: Narration (watches timelines/)
-python -m src.narration.narrate --watch
-
-# Terminal 5: Assembler (watches narration/)
-python -m src.assembler.assemble --watch
-```
-
-
-## ML Model Training (Code Detection)
-
-The ingestion pipeline uses a Random Forest model to classify lines as code or text. This model needs to be trained manually before first use. The model improves over time as you label more data and retrain.
-
-**This is a one-time setup (and periodic retraining). It is NOT part of the main pipeline.**
-
-### Prerequisites
-
-- Ollama running with `nomic-embed-text` model (for embeddings)
-
-### Step 1: Run ingestion first
-
-You need code blocks detected by heuristics before you can label them.
-
-```bash
-python -m src.ingestion.ingest_pdf /path/to/your.pdf
-```
-
-This writes code block files to `pipeline/sections/resources/code_blocks/`.
-
-### Step 2: Label the data (manual effort)
-
-Go through each detected code block line by line. For each line, type `c` (code) or `t` (text). This is tedious but necessary — the model learns from your labels.
-
-```bash
-python -m src.ingestion.ml.utils
-```
-
-This reads from `pipeline/sections/resources/code_blocks/` and writes labeled JSON files to the training data directory (configured in `[ml] training_data_dir`).
-
-- Already labeled files are skipped automatically.
-- You can redo a file by typing `y` when prompted.
-- You can stop anytime and resume later — progress is saved per file.
-
-### Step 3: Train the model
-
-Once you have enough labeled data (50+ samples recommended), train the Random Forest:
-
-```bash
-python -m src.ingestion.ml.train
-```
-
-This:
-- Loads labeled data from the training data directory
-- Extracts hand-crafted features + Ollama embeddings
-- Runs 5-fold cross-validation and prints F1 score
-- Trains the final model on all data
-- Saves to `models/code_rf.joblib`
-
-### Step 4: Check per-line probabilities (optional)
-
-Inspect the model's confidence on individual code blocks:
-
-```bash
-# Single file
-python -m src.ingestion.ml.line_proba --file pipeline/sections/resources/code_blocks/27_66_code_blocks_1.txt
-
-# First 10 code blocks
-python -m src.ingestion.ml.line_proba --limit 10
-```
-
-### Retraining
-
-To improve the model:
-1. Ingest a new PDF
-2. Label the new code blocks (`python -m src.ingestion.ml.utils`)
-3. Retrain (`python -m src.ingestion.ml.train`)
-
-The more diverse your training data, the better the model generalizes.
-
+---
 
 ## Configuration
 
-All settings are in `configuration.cfg`. Key sections:
+Everything tuneable lives in **`configuration.cfg`** (INI format). Key knobs:
 
-- `[ingestion]` — code detection thresholds, code block rendering style
-- `[grouping]` — content groups dir, canvas layout, compiler settings
-- `[ollama]` — LLM model and endpoint
-- `[ml]` — ML model training, embedding config, inference threshold
+- `[pipeline]` `thread_workers` (default 4) — concurrency for I/O-bound stages
+- `[grouping]` `book_title` — used in Part filenames
+- `[grouping]` `part_min_duration_minutes` (default 10) — minimum Part length
+- `[grouping]` `max_visible_entities` (default 4) — entity-scene cap
+- `[manim]` `quality` — `qh` (1080p60), `qm` (720p30), or `ql` (480p15) for speed
+- `[ollama]` `chat_model` — default `gemma4:e2b`
+- `[subtitles]` — libass font, color, margin (burned into the video)
+
+---
+
+## ML model training (one-time setup for code detection)
+
+The ingestion stage uses a Random Forest to distinguish code lines from
+prose lines. This is trained once from manually labeled samples.
+
+```bash
+# 1. Ingest a PDF (writes code-block candidates to pipeline/sections/resources/code_blocks/)
+python -m src.ingestion.ingest_pdf /path/to/your.pdf
+
+# 2. Label each line c/t (tedious — but only once)
+python -m src.ingestion.ml.utils
+
+# 3. Train (needs ~50+ labeled samples)
+python -m src.ingestion.ml.train  # writes models/code_rf.joblib
+
+# 4. Verify (optional)
+python -m src.ingestion.ml.line_proba --limit 10
+```
+
+Without this model, code-block detection falls back to heuristics — usually
+fine but less accurate.
+
+---
+
+## What's where
+
+| Path | What it is |
+|---|---|
+| `main.py` | Entry point — runs all watchers in cascade |
+| `configuration.cfg` | All tuneable settings (paths, models, geometry, style) |
+| `src/ingestion/` | PDF → section files + extracted media |
+| `src/scene_grouping/` | LLM stages: group, timeline, listify, concept cards |
+| `src/narration/` | Piper TTS + faster-whisper forced alignment |
+| `src/compiler/` | Timeline → DSL → Manim render JSON |
+| `src/renderer/` | Manim subprocess + custom shapes (cards, pills, headings) |
+| `src/subtitles/` | SRT generation with word-level timing |
+| `src/assembler/` | ffmpeg merge + concat + Part packaging |
+| `src/icons/` | Iconify SVG download + cache |
+| `src/dsl/` | Lark grammar for the `.scene` DSL |
+| `pipeline/` | All generated artifacts (regenerable) |
+| `media/` | Manim's raw render output (regenerable) |
+| `models/` | Trained ML models |
+| `ARCHITECTURE.md` | Stage-by-stage flow with data shapes, formats, side effects |
+| `ui.md` | Desktop UI design notes (PyQt6 frontend, not yet built) |
+
+---
+
+## License
+
+See `LICENSE`.

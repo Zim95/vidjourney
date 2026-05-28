@@ -19,6 +19,8 @@ import time
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 from pathlib import Path
 
+from watchdog.observers import Observer
+
 from src.utils import logger
 from src.config.constants import PIPELINE_THREAD_WORKERS, PIPELINE_PROCESS_WORKERS
 from src.ingestion.ingest_pdf import ingest
@@ -43,14 +45,21 @@ def main(pdf_path: Path) -> None:
     assemble_observer = start_assemble_watcher(executor=thread_pool)
     logger.info("Assembler watcher started (thread pool — I/O: ffmpeg)")
 
-    narrate_observer = start_narrate_watcher(executor=thread_pool)
-    logger.info("Narration watcher started (thread pool — I/O: TTS)")
+    # compile + narrate both watch pipeline/groups/timelines/. fsevents on Mac
+    # crashes if two Observer instances watch the same path. Share one Observer.
+    #
+    # Compile uses the thread pool, NOT the process pool — the watcher submits
+    # a bound method to its executor, and ProcessPoolExecutor would have to
+    # pickle the handler instance (including the executor reference), which
+    # fails silently. Compile work is fast (ms) so process isolation is overkill.
+    timelines_observer = Observer()
+    start_compile_watcher(executor=thread_pool, observer=timelines_observer)
+    start_narrate_watcher(executor=thread_pool, observer=timelines_observer)
+    timelines_observer.start()
+    logger.info("Compiler + narration watchers sharing one Observer on timelines/")
 
     render_observer = start_render_watcher(executor=thread_pool)
     logger.info("Renderer watcher started (thread pool — I/O: manim subprocess)")
-
-    compile_observer = start_compile_watcher(executor=process_pool)
-    logger.info("Compiler watcher started (process pool — CPU: DSL parsing)")
 
     icons_observer = start_icons_watcher(executor=thread_pool)
     logger.info("Icons watcher started (thread pool — I/O: Iconify downloads)")
@@ -77,14 +86,13 @@ def main(pdf_path: Path) -> None:
         stop_icons_watcher(icons_observer)
         logger.info("Icons watcher stopped.")
 
-        stop_compile_watcher(compile_observer)
-        logger.info("Compiler watcher stopped.")
+        # Single shared observer for timelines/ — stop once
+        timelines_observer.stop()
+        timelines_observer.join()
+        logger.info("Compiler + narration watcher stopped.")
 
         stop_render_watcher(render_observer)
         logger.info("Renderer watcher stopped.")
-
-        stop_narrate_watcher(narrate_observer)
-        logger.info("Narration watcher stopped.")
 
         stop_assemble_watcher(assemble_observer)
         logger.info("Assembler watcher stopped.")

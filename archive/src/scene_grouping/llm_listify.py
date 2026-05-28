@@ -101,10 +101,15 @@ Strict rules:
   "Core concerns" rather than "Three core concerns".
 - Each item's `text` must be a substring or very close paraphrase of the
   paragraph (used directly as TTS narration).
-- Each item's `summary` is a SHORT 3-5 word phrase (NO punctuation, NO
-  trailing period). It is what appears as the bullet on screen. When the
+- Each item's `summary` is a SHORT phrase (aim for 3-7 words, NO punctuation,
+  NO trailing period). It is what appears as the bullet on screen. When the
   paragraph names the item (e.g., "Reliability ... Scalability ..."), USE
   THAT NAME as the summary verbatim. Don't paraphrase it into a description.
+  KEY-TERM RULE: if the source sentence for this item contains a parenthesised
+  term — e.g. "(databases)", "(stream processing)", "(Apache Kafka)" — that
+  term is the canonical short label the author chose. The summary MUST
+  incorporate that term as one of its words (not in parens, just as part of
+  the phrase). Drop the parentheses; keep the term.
 - `intro` and `outro` are taken verbatim from the paragraph; do not paraphrase.
 - Together, intro + items[].text + outro must roughly cover the paragraph
   (minor whitespace/connector-word changes are fine).
