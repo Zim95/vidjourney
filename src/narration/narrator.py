@@ -75,10 +75,11 @@ def generate_narration(timeline_file: Path) -> Path:
 
 
 def narrate_text(text: str, output_path: Path) -> Path:
-    """TTS arbitrary text to a WAV file. Idempotent (skip if file exists)."""
+    """TTS arbitrary text to a WAV file. Always overwrites the destination —
+    callers that want caching must check content equivalence themselves
+    (skip-if-exists by filename was a stale-cache footgun when block content
+    shifted but the filename slot stayed the same)."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    if output_path.exists():
-        return output_path
     if not text.strip():
         # Write a tiny silent wav to avoid downstream errors
         with wave.open(str(output_path), "wb") as wav_file:

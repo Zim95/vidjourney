@@ -20,6 +20,7 @@ from src.ingestion.section_detection.code_cleanup import CodeBlockFormatUtils
 from src.ingestion.code_block_renderer import render_code_block
 from src.ingestion.section_detection.paragraph_utils import ParagraphUtils
 from src.ingestion.section_detection.table_detection import TableDetectionUtils
+from src.ingestion.quote_attribution import is_quote, split_quote_and_prose
 
 
 class SectionWriter:
@@ -110,6 +111,19 @@ class SectionWriter:
     @staticmethod
     def _append_paragraphs(lines: list[str], paragraphs: list[str]) -> None:
         for para in paragraphs:
+            # PDF extraction often merges a quote with the following paragraph
+            # (no blank line between them in the source). Split first, then
+            # type-tag the quote half as QUOTE so downstream gets a first-class
+            # marker.
+            split = split_quote_and_prose(para)
+            if split is not None:
+                quote_text, prose_text = split
+                lines.append(f"QUOTE {quote_text}")
+                lines.append(f"PARAGRAPH {prose_text}")
+                continue
+            if is_quote(para):
+                lines.append(f"QUOTE {para}")
+                continue
             lines.append(f"PARAGRAPH {para}")
 
     @staticmethod

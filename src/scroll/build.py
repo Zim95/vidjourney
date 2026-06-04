@@ -443,6 +443,20 @@ def _groups_to_blocks(groups: list, section_name: str) -> list[Block]:
             blocks.append(Block(kind="heading", text=text, display=text))
             continue
 
+        if group.kind == "quote":
+            # Quote was deterministically detected upstream (ingestion or the
+            # grouper's safety-net pass) — anchor.text is the full quote +
+            # attribution string. extract_quote pulls them apart for display.
+            quote_text = group.anchor.text.strip()
+            q = extract_quote(quote_text)
+            blocks.append(Block(
+                kind="quote",
+                text=quote_text,
+                display=q.text,
+                attribution=q.attribution,
+            ))
+            continue
+
         if group.kind != "paragraph":
             # Standalone list / standalone resource groups. Skip for now —
             # the sections we've targeted don't have them.
@@ -453,7 +467,11 @@ def _groups_to_blocks(groups: list, section_name: str) -> list[Block]:
         resources = group.resources
         cap_map = group.caption_for_resource
 
-        # Quote paragraphs render as a full-frame quote block.
+        # LLM-classifier fallback for quotes the deterministic detector
+        # didn't catch — bare-name attributions (e.g. "—Donald Knuth") and
+        # non-Gregorian years (BCE, year-ranges like "1265-1274"). Year-bearing
+        # attributions are already routed via the "quote" group kind above
+        # and don't reach this branch.
         if not list_items and not resources:
             verdict = classify_paragraph(intro_text)
             if verdict == "quote":
@@ -557,10 +575,14 @@ def _narrate_blocks(blocks: list[Block], section_name: str) -> tuple[list[float]
     """Pre-narrate every block, then pad each block's wav with silence if
     Piper's output is shorter than the block needs to be on screen.
 
-    Caching: Piper output is cached as ``block_NNN_raw.wav`` and never
-    rewritten. The padded version sits at ``block_NNN.wav`` and is
-    regenerated each run from the raw — so the padding rate can be tuned
-    without re-running Piper (the slow step).
+    Caching: Piper output is cached as ``block_NNN_raw.wav`` keyed by a
+    sidecar ``block_NNN.txt`` containing the exact narration text. Re-narrate
+    when the sidecar is missing (legacy cache) or its text differs from the
+    current block — index-only caching mis-played stale audio for every
+    block after a content shift (e.g., a new QUOTE block inserted upstream
+    pushed every subsequent block's narration into the wrong slot). The
+    padded version at ``block_NNN.wav`` is regenerated each run from the
+    raw so the padding rate can be tuned without re-running Piper.
 
     Migration: any pre-existing ``block_NNN.wav`` that was created before
     this code split the two files is treated as the raw narration and
@@ -575,12 +597,16 @@ def _narrate_blocks(blocks: list[Block], section_name: str) -> tuple[list[float]
     for i, b in enumerate(blocks):
         raw_wav = block_wavs_dir / f"block_{i:03d}_raw.wav"
         wav = block_wavs_dir / f"block_{i:03d}.wav"
+        text_sidecar = block_wavs_dir / f"block_{i:03d}.txt"
         if b.has_audio:
             # Migrate any legacy unsplit wav → treat it as raw.
             if not raw_wav.exists() and wav.exists():
                 wav.rename(raw_wav)
-            if not raw_wav.exists():
-                narrate_text(b.narration_text, raw_wav)
+            current_text = b.narration_text
+            cached_text = text_sidecar.read_text(encoding="utf-8") if text_sidecar.exists() else None
+            if not raw_wav.exists() or cached_text != current_text:
+                narrate_text(current_text, raw_wav)
+                text_sidecar.write_text(current_text, encoding="utf-8")
             d_raw = get_audio_duration(raw_wav)
             min_view = _min_view_time(b)
             if d_raw + 0.05 < min_view:

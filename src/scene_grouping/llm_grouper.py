@@ -29,6 +29,7 @@ from src.config.constants import (
     OLLAMA_CHAT_MODEL,
     OLLAMA_MAX_RETRIES,
 )
+from src.ingestion.quote_attribution import is_quote, split_quote_and_prose
 
 
 SECTIONS_DIR = GROUPING_SECTIONS_DIR
@@ -88,7 +89,7 @@ class Element:
 
 @dataclass
 class ContentGroup:
-    kind: str               # "heading" | "paragraph" | "image" | "code_block" | "table" | "list"
+    kind: str               # "heading" | "paragraph" | "quote" | "image" | "code_block" | "table" | "list"
     elements: list[Element] # anchor first, then absorbed resources/captions/list_items
 
     @property
@@ -173,7 +174,7 @@ def deserialize_groups(text: str) -> list[ContentGroup]:
 
         # Element line: "  KIND text..."
         el_match = re.match(
-            r"^(HEADING|PARAGRAPH|LIST_ITEM|IMAGE|TABLE|CAPTION|CODE_BLOCK)\s+(.*)$",
+            r"^(HEADING|PARAGRAPH|QUOTE|LIST_ITEM|IMAGE|TABLE|CAPTION|CODE_BLOCK)\s+(.*)$",
             line,
         )
         if el_match and current_kind is not None:
@@ -181,7 +182,7 @@ def deserialize_groups(text: str) -> list[ContentGroup]:
             continue
 
         # Continuation line — append to previous text element
-        if current_elements and current_elements[-1].kind in ("PARAGRAPH", "LIST_ITEM", "HEADING", "CAPTION"):
+        if current_elements and current_elements[-1].kind in ("PARAGRAPH", "QUOTE", "LIST_ITEM", "HEADING", "CAPTION"):
             current_elements[-1].text += " " + line
 
     if current_kind is not None:
@@ -204,11 +205,11 @@ def parse_section(content: str) -> list[Element]:
             continue
 
         match = re.match(
-            r"^(HEADING|PARAGRAPH|LIST_ITEM|IMAGE|TABLE|CAPTION|LINK|ANNOTATION|CODE_BLOCK)\s+(.*)$",
+            r"^(HEADING|PARAGRAPH|QUOTE|LIST_ITEM|IMAGE|TABLE|CAPTION|LINK|ANNOTATION|CODE_BLOCK)\s+(.*)$",
             line,
         )
         if not match:
-            if elements and elements[-1].kind in ("PARAGRAPH", "LIST_ITEM", "HEADING", "CAPTION"):
+            if elements and elements[-1].kind in ("PARAGRAPH", "QUOTE", "LIST_ITEM", "HEADING", "CAPTION"):
                 elements[-1].text += " " + line
             continue
 
@@ -216,19 +217,26 @@ def parse_section(content: str) -> list[Element]:
         text = match.group(2).strip()
         elements.append(Element(kind=kind, text=text))
 
-    # Post-process: split paragraphs where a quote attribution like
-    # "—Alan Kay, in interview with Dr Dobb's Journal (2012)" was merged with
-    # an unrelated following paragraph. PDF extraction joins these because the
-    # attribution line has no trailing blank line in the source. Splitting
-    # here lets the quote flow through the quote display path while the
-    # follow-on prose gets its own concept-card / list treatment.
+    # Safety net: in section files that pre-date ingestion-level QUOTE
+    # emission, a quote may still arrive as a PARAGRAPH (possibly merged with
+    # the following paragraph because PDF extraction lost the blank line).
+    # Re-apply the same split + type-tag logic here so older artifacts get the
+    # quote treatment without needing a full re-ingest.
     expanded: list[Element] = []
     for el in elements:
         if el.kind != "PARAGRAPH":
             expanded.append(el)
             continue
-        for part in _split_quote_attribution(el.text):
-            expanded.append(Element(kind="PARAGRAPH", text=part))
+        split = split_quote_and_prose(el.text)
+        if split is not None:
+            quote_text, prose_text = split
+            expanded.append(Element(kind="QUOTE", text=quote_text))
+            expanded.append(Element(kind="PARAGRAPH", text=prose_text))
+            continue
+        if is_quote(el.text):
+            expanded.append(Element(kind="QUOTE", text=el.text))
+            continue
+        expanded.append(el)
     return expanded
 
 
@@ -312,35 +320,6 @@ def _parse_llm_response(
     return associations, list_indices
 
 
-# --- Quote attribution splitting (regex) ---
-
-# Matches an em/en dash followed by a capitalized author and a "(YYYY)" year-
-# in-parens source citation, e.g. "—Alan Kay, in interview with Dr Dobb's
-# Journal (2012)". The trailing year is what reliably marks the END of the
-# attribution; without it we don't know where prose resumes, so we leave the
-# paragraph alone rather than risk a false split.
-_QUOTE_ATTRIB_SPLIT_RE = re.compile(
-    r"([—–]\s*[A-Z][^()\n]{1,150}\([12]\d{3}\)[.,]?)"
-    r"\s+(?=[A-Z][a-z])"
-)
-
-
-def _split_quote_attribution(text: str) -> list[str]:
-    """Split text on an attribution-then-new-prose boundary.
-
-    Returns [text] unchanged if no attribution-with-year pattern is found,
-    or [quote_with_attribution, following_prose] when it is. Both halves are
-    stripped; empty halves are dropped.
-    """
-    match = _QUOTE_ATTRIB_SPLIT_RE.search(text)
-    if not match:
-        return [text]
-    split_at = match.end()
-    head = text[:split_at].strip()
-    tail = text[split_at:].strip()
-    return [part for part in (head, tail) if part]
-
-
 # --- Embedded list splitting (regex) ---
 
 # Matches numbered markers at start of segment: "1. ", "2) ", "(3) ", "a. ", etc.
@@ -398,12 +377,20 @@ def _structural_fallback(elements: list[Element]) -> list[ContentGroup]:
             i += 1
             continue
 
+        if el.kind == "QUOTE":
+            # Quotes are always standalone — they don't absorb resources,
+            # list items, or captions. The full quote text + attribution
+            # lives in el.text.
+            groups.append(ContentGroup(kind="quote", elements=[el]))
+            i += 1
+            continue
+
         if el.kind == "PARAGRAPH":
             group_els = [el]
             j = i + 1
             while j < len(elements):
                 nxt = elements[j]
-                if nxt.kind in ("PARAGRAPH", "HEADING"):
+                if nxt.kind in ("PARAGRAPH", "QUOTE", "HEADING"):
                     break
                 if nxt.kind in SKIP_KINDS:
                     j += 1
@@ -521,6 +508,13 @@ def _assemble_groups(elements: list[Element], associations: dict[int, list[int]]
 
         if el.kind == "HEADING":
             groups.append(ContentGroup(kind="heading", elements=[el]))
+            consumed.add(i)
+            i += 1
+            continue
+
+        if el.kind == "QUOTE":
+            # Quotes are always standalone (see structural fallback).
+            groups.append(ContentGroup(kind="quote", elements=[el]))
             consumed.add(i)
             i += 1
             continue

@@ -81,10 +81,17 @@ def merge_audio_video(
 
 
 def concat_wavs(wav_paths: list[Path], output_path: Path) -> Path:
-    """Concatenate multiple WAV files into one, preserving sample rate via copy."""
+    """Concatenate multiple WAV files into one, preserving sample rate via copy.
+
+    Re-runs when any input is newer than the output. The previous
+    unconditional skip-if-exists shipped stale concatenations whenever the
+    per-block wavs were regenerated (e.g., after a re-narration).
+    """
     output_path.parent.mkdir(parents=True, exist_ok=True)
     if output_path.exists():
-        return output_path
+        output_mtime = output_path.stat().st_mtime
+        if all(p.exists() and p.stat().st_mtime <= output_mtime for p in wav_paths):
+            return output_path
 
     with tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False) as f:
         list_file = Path(f.name)
