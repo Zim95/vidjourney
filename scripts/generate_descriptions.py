@@ -209,10 +209,12 @@ def render_part_md(
         t += dur
     total_seconds = t
 
-    youtube_title = f"DDIA Part {part_num}: {llm_title}"
-    # YouTube title cap is generous; this is just a hygiene check.
-    if len(youtube_title) > 95:
-        youtube_title = youtube_title[:92].rstrip() + "..."
+    # Hyphenated, matching the part mp4 filename stem (also what the uploader
+    # uses by default): "<book> - Part N - <llm title>".
+    youtube_title = f"{BOOK_TITLE} - Part {part_num} - {llm_title}"
+    # YouTube title hard cap is 100 chars.
+    if len(youtube_title) > 100:
+        youtube_title = youtube_title[:99].rstrip() + "…"
 
     headings_sentence = ", ".join(headings)
     chapters_lines = "\n".join(

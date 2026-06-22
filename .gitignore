@@ -162,6 +162,11 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+# YouTube OAuth secrets — never commit
+client.secret.json
+client_secret.json
+.youtube_token.json
+
 # pytype static type analyzer
 .pytype/
 

@@ -183,6 +183,33 @@ OLLAMA_BASE_URL = _cfg_text("ollama", "base_url", "http://localhost:11434")
 OLLAMA_CHAT_MODEL = _cfg_text("ollama", "chat_model", "llama3.1:8b")
 OLLAMA_MAX_RETRIES = _cfg_int("ollama", "max_retries", 3)
 
+# YouTube upload / scheduling
+YOUTUBE_CLIENT_SECRETS_FILE = _cfg_text("youtube", "client_secrets_file", "")
+YOUTUBE_TOKEN_FILE = _cfg_path("youtube", "token_file", "pipeline/descriptions/.youtube_token.json")
+YOUTUBE_PARTS_DIR = _cfg_path("youtube", "parts_dir", "pipeline/scroll/parts")
+YOUTUBE_DESCRIPTIONS_DIR = _cfg_path("youtube", "descriptions_dir", "pipeline/descriptions")
+YOUTUBE_UPLOAD_STATE_FILE = _cfg_path("youtube", "upload_state_file", "pipeline/descriptions/upload_state.json")
+
+YOUTUBE_PLAYLIST_ID = _cfg_text("youtube", "playlist_id", "")
+YOUTUBE_PLAYLIST_TITLE = _cfg_text("youtube", "playlist_title", "")
+YOUTUBE_PLAYLIST_PRIVACY = _cfg_text("youtube", "playlist_privacy", "public")
+YOUTUBE_THUMBNAIL_FILE = _cfg_text("youtube", "thumbnail_file", "")
+
+YOUTUBE_PUBLISH_START_DATE = _cfg_text("youtube", "publish_start_date", "")
+YOUTUBE_PUBLISH_TIME = _cfg_text("youtube", "publish_time", "10:00")
+YOUTUBE_PUBLISH_TIMEZONE = _cfg_text("youtube", "publish_timezone", "UTC")
+YOUTUBE_PUBLISH_INTERVAL_DAYS = float(_cfg_text("youtube", "publish_interval_days", "1"))
+YOUTUBE_PUBLISH_PRIVACY_STATUS = _cfg_text("youtube", "publish_privacy_status", "public")
+
+YOUTUBE_UPLOAD_DELAY_SECONDS = float(_cfg_text("youtube", "upload_delay_seconds", "300"))
+YOUTUBE_UPLOAD_CHUNK_SIZE = int(_cfg_text("youtube", "upload_chunk_size", "5242880"))
+YOUTUBE_UPLOAD_MAX_RETRIES = _cfg_int("youtube", "upload_max_retries", 5)
+YOUTUBE_CATEGORY_ID = _cfg_text("youtube", "category_id", "27")
+YOUTUBE_DEFAULT_LANGUAGE = _cfg_text("youtube", "default_language", "en")
+YOUTUBE_MADE_FOR_KIDS = _cfg_text("youtube", "made_for_kids", "false").lower() == "true"
+YOUTUBE_DECLARE_ALTERED_CONTENT = _cfg_text("youtube", "declare_altered_content", "false").lower() == "true"
+YOUTUBE_TITLE_SOURCE = _cfg_text("youtube", "title_source", "filename").lower()
+
 # Icons
 ICONS_API_SEARCH_URL = _cfg_text("icons", "api_search_url", "https://api.iconify.design/search")
 ICONS_API_DOWNLOAD_URL = _cfg_text("icons", "api_download_url", "https://api.iconify.design")

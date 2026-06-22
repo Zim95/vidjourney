@@ -1,47 +1,37 @@
 # VidJourney
 
-Turn a PDF into a folder of narrated explainer videos.
+Turn a PDF into a folder of narrated explainer videos, bundled into ~10-minute
+"Part" videos and optionally published to YouTube on a schedule.
 
-VidJourney ingests a PDF, extracts text + figures + code blocks, picks a
-visual treatment per paragraph (list / concept cards / quote / figure /
-heading), narrates everything with Piper TTS, renders scenes with Manim,
-burns in word-aligned subtitles, and bundles consecutive sections into
-~10-minute "Part" videos ready to publish.
+VidJourney ingests a PDF, extracts text + figures + code blocks + tables,
+groups them per section, narrates everything with Piper TTS, renders each
+section as a vertically-scrolling canvas with Manim + ffmpeg (camera panning in
+sync with the narration), packs consecutive sections into ≥10-minute Parts, and
+can upload those Parts to YouTube — scheduled, paced, and added to a playlist.
 
----
-
-## Quick start
-
-```bash
-# 1. Install dependencies (one time)
-./install.sh
-
-# 2. Run the full pipeline on a PDF
-python main.py /path/to/your.pdf
-
-# 3. Bundle the per-section videos into 10-minute Parts
-python -m src.assembler.build_video
-```
-
-Output lands in `pipeline/output/parts/`.
-
-For the full architecture (what each stage does, every file produced, every
-module), see **[ARCHITECTURE.md](ARCHITECTURE.md)**.
+> **Architecture note:** the current pipeline is a set of standalone stages run
+> in sequence (there is no single orchestrator yet — the old `main.py` watchdog
+> cascade was retired). The planned re-architecture — a unified orchestrator
+> with per-stage `--all`/`--watch`/`--workers` and a watchdog cascade — is
+> documented in **[FINAL_ARCH.md](FINAL_ARCH.md)**.
 
 ---
 
 ## Prerequisites
 
 - Python 3.11+ with [uv](https://docs.astral.sh/uv/)
-- [ffmpeg](https://ffmpeg.org/) **with libass** (for burned-in subtitles).
-  On Mac: `brew install homebrew-ffmpeg/ffmpeg/ffmpeg`
-- [Ollama](https://ollama.com) with `gemma4:e2b` pulled
+- [ffmpeg](https://ffmpeg.org/) (with **libass** if you want burned-in subtitles)
+- [Ollama](https://ollama.com) with `gemma4:e2b` pulled (chat) and
+  `nomic-embed-text` (embeddings, for code detection)
 - [Piper TTS](https://github.com/rhasspy/piper) voice at
   `~/.local/share/piper-voices/en_US-lessac-medium.onnx`
-- `models/code_rf.joblib` — Random Forest for code-vs-text classification.
-  Trained from labeled samples; see *ML model training* below if missing.
+- `models/code_rf.joblib` — Random Forest for code-vs-text classification
+  (see *ML model training* below if missing; falls back to heuristics)
+- For YouTube upload only: `uv add google-api-python-client google-auth-oauthlib
+  google-auth-httplib2` and an OAuth client (see *Publishing to YouTube*)
 
-`./install.sh` handles all of the above except the ML model.
+`./install.sh` handles the core dependencies (except the ML model and the
+Google libraries).
 
 ---
 
@@ -51,103 +41,147 @@ module), see **[ARCHITECTURE.md](ARCHITECTURE.md)**.
 PDF
  │
  ▼
-[1] INGEST          extract text, figures, code, tables → pipeline/sections/
-[2] GROUP           LLM associates paragraphs with their resources
-[3] TIMELINE        LLM picks a visual treatment per paragraph (one of:
- │                  list / concept-cards / quote / figure / heading)
- │                  Pre-narrates + forced-aligns paragraph-blank scenes.
-[4] COMPILE         timeline → .scene DSL → render.json (Manim input)
-[5] NARRATE         TTS audio for the remaining scenes (headings, figures)
-[6] RENDER          Manim → silent mp4
-[7] SUBTITLES       SRT from voiceover + alignment word-timestamps
-[8] ASSEMBLE        ffmpeg merges silent mp4 + WAV + burns in subtitles
-[9] CONCAT          ffmpeg-concats scenes into per-section mp4
-[10] BUILD PARTS    pack consecutive sections into ≥10-min "Part" videos,
-                    LLM-named: "<Book> - Part <n> - <Summary>.mp4"
+[1] INGEST     PDF → pipeline/sections/section_*.txt  (text, figures, code, tables)
+[2] GROUP      sections → pipeline/groups/content_groups/  (deterministic grouping + listify)
+[3] RENDER     per section → narrate (Piper) → scroll canvas (Manim) → ffmpeg pan
+ │             → pipeline/scroll/output/section_N_raster.mp4
+[4] PARTS      pack consecutive sections into ≥10-min Parts → pipeline/scroll/parts/
+ │             named "<Book> - Part <n> - <Summary>.mp4"
+[5] DESCRIBE   Parts → pipeline/descriptions/part_NN.md  (paste-ready YouTube metadata)
+[6] PUBLISH    (optional) upload Parts to YouTube — scheduled, paced, into a playlist
 ```
-
-Five visual treatments routed per paragraph:
-
-| Content | Treatment |
-|---|---|
-| Heading | Full-frame text card |
-| Paragraph + figure / code / table | Show the resource for the whole scene |
-| Paragraph + explicit list items | Accumulating bullets with optional setup image |
-| Paragraph with implicit enumeration (3+ parallel items, questions, steps) | Listify → bulleted list with a title header |
-| Direct quotation | `"<quote>"` + `— <attribution>` |
-| Anything else (prose) | 2-4 sequential full-frame concept cards (title + body) |
 
 ---
 
-## Running stages independently
+## Running the pipeline
 
-The pipeline is event-driven under `main.py`, but every stage also has a
-standalone CLI. Useful for partial reprocessing (e.g., rerun timelines for
-one section after a prompt change).
+Every stage is a standalone command. You can run them **one at a time** (good
+for partial reprocessing — e.g. re-render a single section after a change) or
+chain them to run **all at once**.
+
+### Individually
 
 ```bash
-# Ingestion
-python -m src.ingestion.ingest_pdf /path/to/your.pdf
+# [1] Ingest one PDF → section files
+python -m src.ingestion.ingest_pdf /path/to/book.pdf
 
-# Group sections (LLM associates paragraphs with resources)
-python -m src.scene_grouping.group [--all|--watch|pipeline/sections/section_N.txt]
+# [2] Group sections → content groups
+python -m src.scene_grouping.llm_grouper --all                       # all pending
+python -m src.scene_grouping.llm_grouper --watch                     # cascade: group as ingest writes files
+python -m src.scene_grouping.llm_grouper pipeline/sections/section_3.txt   # one section
 
-# Build timelines (LLM picks visual treatments; pre-narrate + align paragraph-blank scenes)
-python -m src.scene_grouping.llm_timeline [--all|pipeline/groups/content_groups/section_N.txt]
+# [3] Render a section → narrated scroll mp4 (the slow stage)
+python -m src.scroll.build_raster 3                                  # one section, by number
 
-# Compile timeline → DSL → render.json
-python -m src.compiler.compile [--all|--watch|pipeline/groups/timelines/timeline_*.txt]
+# [4] Pack rendered sections into ≥10-min Part videos
+python -m src.assembler.build_video --dry-run                        # preview the packing
+python -m src.assembler.build_video                                  # write the Parts
 
-# Narrate (heading and figure scenes — paragraph-blank ones are pre-narrated)
-python -m src.narration.narrate [--watch|pipeline/groups/timelines/timeline_*.txt|section_N]
+# [5] Generate paste-ready YouTube metadata per Part
+python scripts/generate_descriptions.py
 
-# Render with Manim (the slow stage — 30s to 3min per scene)
-python -m src.renderer.render [--all|--watch|pipeline/render/timeline_*.render.json]
-
-# Assemble (merge audio + video + subtitles per scene; --concat for full section)
-python -m src.assembler.assemble [<scene>|section_N [--concat]|--watch]
-
-# Build final ≥10-min Part videos
-python -m src.assembler.build_video [--dry-run]
+# [6] Upload to YouTube (optional — see Publishing to YouTube)
+python -m scripts.upload_to_youtube --dry-run
+python -m scripts.upload_to_youtube --limit 6
 ```
+
+Note: ingest, build_video, and generate_descriptions process **everything** in
+one run; group supports `--all`/`--watch`; **render is per-section** (one number
+per call) — loop it to render the whole book (below).
+
+### All at once
+
+There is no single orchestrator yet, so a full run chains the stages (the render
+step loops over every section):
+
+```bash
+PDF=/path/to/book.pdf
+
+python -m src.ingestion.ingest_pdf "$PDF"            # 1. PDF → sections
+python -m src.scene_grouping.llm_grouper --all       # 2. sections → groups
+
+for f in pipeline/sections/section_*.txt; do         # 3. render every section
+  n=$(echo "$f" | sed -E 's/.*section_([0-9]+)\.txt/\1/')
+  python -m src.scroll.build_raster "$n"
+done
+
+python -m src.assembler.build_video                  # 4. pack into Parts
+python scripts/generate_descriptions.py              # 5. YouTube metadata
+# python -m scripts.upload_to_youtube --limit 6      # 6. (optional) publish
+```
+
+Tip: run the grouper in `--watch` mode in a second terminal **before** ingest,
+and stages 1→2 cascade automatically as section files land. Render onward is
+still manual today (the full watchdog cascade is the FINAL_ARCH.md target).
+
+---
+
+## Publishing to YouTube
+
+The uploader reuses the `part_NN.md` description files and uploads each Part as a
+**private, scheduled** video (it goes public on its `publishAt` date), adds it to
+a playlist, sets a thumbnail, and records each upload in a ledger so reruns never
+double-upload.
+
+One-time setup:
+
+1. Google Cloud Console → enable **YouTube Data API v3** → create an OAuth client
+   of type **Desktop app** → download the JSON. (No billing/card required — the
+   API runs on a free daily quota.)
+2. Point `[youtube] client_secrets_file` at that JSON. The token is written to
+   `token_file` after the first browser sign-in and reused after.
+3. Set `[youtube]` `playlist_id`, `publish_start_date`, and the thumbnail.
+
+```bash
+python -m scripts.upload_to_youtube --whoami      # confirm which channel
+python -m scripts.upload_to_youtube --list        # list discovered Parts + schedule
+python -m scripts.upload_to_youtube --dry-run     # full plan, no upload
+python -m scripts.upload_to_youtube --limit 6     # upload N pending (≈6/day on free quota)
+python -m scripts.upload_to_youtube --part 14,15  # upload specific Parts
+```
+
+Notes:
+- **Quota:** a video insert costs ~1600 of the 10,000 free daily units → ~6
+  uploads/day. The run stops cleanly at quota and resumes next day.
+- **Auto-set on upload:** category (Education), AI/altered-content = false,
+  chapters (from the description), playlist membership, and thumbnail.
+- **Manual step:** the Education **Type** dropdown (e.g. *Concept overview*) is
+  Studio-only — no API exists for it, so set it by hand per video.
+- Custom thumbnails require a **phone-verified** channel.
 
 ---
 
 ## Configuration
 
-Everything tuneable lives in **`configuration.cfg`** (INI format). Key knobs:
+Everything tuneable lives in **`configuration.cfg`** (INI). Key knobs:
 
-- `[pipeline]` `thread_workers` (default 4) — concurrency for I/O-bound stages
-- `[grouping]` `book_title` — used in Part filenames
-- `[grouping]` `part_min_duration_minutes` (default 10) — minimum Part length
-- `[grouping]` `max_visible_entities` (default 4) — entity-scene cap
-- `[manim]` `quality` — `qh` (1080p60), `qm` (720p30), or `ql` (480p15) for speed
-- `[ollama]` `chat_model` — default `gemma4:e2b`
-- `[subtitles]` — libass font, color, margin (burned into the video)
+- `[pipeline]` `thread_workers` / `process_workers` — concurrency pools
+- `[manim]` `quality` — `qh` (1080p60), `qm` (720p30), `ql` (480p15, fastest)
+- `[ingestion]` table + code detection thresholds; code-block rendering
+- `[grouping]` `book_title` (used in Part filenames), `part_min_duration_minutes`
+  (default 10), `piper_model`, narration/output dirs
+- `[ollama]` `chat_model` (default `gemma4:e2b`) — only used for the optional
+  Part-title generator
+- `[ml]` embeddings endpoint/model + Random-Forest training params
+- `[subtitles]` libass style (used only if subtitles are burned in)
+- `[youtube]` OAuth, playlist, scheduling, pacing, thumbnail (see above)
 
 ---
 
-## ML model training (one-time setup for code detection)
+## ML model training (one-time, for code detection)
 
-The ingestion stage uses a Random Forest to distinguish code lines from
-prose lines. This is trained once from manually labeled samples.
+Ingestion uses a Random Forest to distinguish code lines from prose. Trained
+once from labeled samples:
 
 ```bash
-# 1. Ingest a PDF (writes code-block candidates to pipeline/sections/resources/code_blocks/)
-python -m src.ingestion.ingest_pdf /path/to/your.pdf
-
-# 2. Label each line c/t (tedious — but only once)
-python -m src.ingestion.ml.utils
-
-# 3. Train (needs ~50+ labeled samples)
-python -m src.ingestion.ml.train  # writes models/code_rf.joblib
-
-# 4. Verify (optional)
-python -m src.ingestion.ml.line_proba --limit 10
+python -m src.ingestion.ingest_pdf /path/to/book.pdf   # writes code-block candidates
+python -m src.ingestion.ml.utils                       # label lines code/text
+python -m src.ingestion.ml.train                       # → models/code_rf.joblib
+python -m src.ingestion.ml.line_proba                  # (optional) inspect predictions
 ```
 
-Without this model, code-block detection falls back to heuristics — usually
-fine but less accurate.
+Without the model, code detection falls back to heuristics — usually fine, less
+accurate.
 
 ---
 
@@ -155,22 +189,19 @@ fine but less accurate.
 
 | Path | What it is |
 |---|---|
-| `main.py` | Entry point — runs all watchers in cascade |
-| `configuration.cfg` | All tuneable settings (paths, models, geometry, style) |
-| `src/ingestion/` | PDF → section files + extracted media |
-| `src/scene_grouping/` | LLM stages: group, timeline, listify, concept cards |
-| `src/narration/` | Piper TTS + faster-whisper forced alignment |
-| `src/compiler/` | Timeline → DSL → Manim render JSON |
-| `src/renderer/` | Manim subprocess + custom shapes (cards, pills, headings) |
-| `src/subtitles/` | SRT generation with word-level timing |
-| `src/assembler/` | ffmpeg merge + concat + Part packaging |
-| `src/icons/` | Iconify SVG download + cache |
-| `src/dsl/` | Lark grammar for the `.scene` DSL |
+| `configuration.cfg` | All tuneable settings (paths, models, YouTube, style) |
+| `src/ingestion/` | PDF → section files + extracted media; `ml/` = code classifier |
+| `src/scene_grouping/` | Deterministic grouping + listify + quote handling |
+| `src/narration/` | Piper TTS |
+| `src/scroll/` | Scroll-canvas renderer (`build_raster.py` is the live path) |
+| `src/assembler/` | ffmpeg merge/concat + Part packaging (`build_video.py`) |
+| `src/publisher/` | YouTube upload (`youtube_uploader.py`) |
+| `scripts/` | `generate_descriptions.py`, `upload_to_youtube.py` |
 | `pipeline/` | All generated artifacts (regenerable) |
 | `media/` | Manim's raw render output (regenerable) |
-| `models/` | Trained ML models |
-| `ARCHITECTURE.md` | Stage-by-stage flow with data shapes, formats, side effects |
-| `ui.md` | Desktop UI design notes (PyQt6 frontend, not yet built) |
+| `models/` | Trained ML models (`code_rf.joblib`) |
+| `FINAL_ARCH.md` | Planned re-architecture: parallel, orchestrated, dual-trigger |
+| `ARCHITECTURE.md` | Stage-by-stage detail (note: predates the scroll rewrite) |
 
 ---
 

@@ -1,10 +1,23 @@
 """
-LLM-based element grouper.
+Deterministic element grouper.
 
-Parses a section file into elements, then uses an LLM to determine which
-paragraphs are associated with which resources (IMAGE, CODE_BLOCK, TABLE).
+Parses a section file into elements and assembles ContentGroups using
+structural rules — no LLM round-trip required. The previous version asked
+an LLM to (a) associate paragraphs with figures and (b) flag paragraphs
+containing inline numbered lists. Both judgments turned out to be
+redundant with simpler mechanisms:
 
-Structural rules handle the rest:
+- Paragraph↔resource association: a forward-scan absorbs resources into
+  the preceding paragraph group, which matches the DDIA layout (figure
+  immediately follows its referencing paragraph) for ~all sections.
+  ``_merge_adjacent_resources`` is kept as a safety net for the rare
+  HEADING→IMAGE→PARAGRAPH ordering.
+- Embedded-list detection: ``_split_embedded_list`` is a self-gating regex
+  that returns ``None`` unless the paragraph contains ≥2 list-marker
+  matches (``1.``/``2)``/``•``/etc.). Apply it unconditionally to every
+  PARAGRAPH and unaffected paragraphs pass through untouched.
+
+Structural rules:
 - HEADING → always standalone
 - CAPTION → always attaches to preceding IMAGE
 - LIST_ITEM → attaches to preceding PARAGRAPH
@@ -14,20 +27,14 @@ Usage:
     python -m src.scene_grouping.llm_grouper pipeline/sections/section_3.txt
     python -m src.scene_grouping.llm_grouper --all
 """
-import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
-
-import requests
 
 from src.utils import logger, timer
 from src.config.constants import (
     GROUPING_SECTIONS_DIR,
     GROUPING_CONTENT_GROUPS_DIR,
-    OLLAMA_BASE_URL,
-    OLLAMA_CHAT_MODEL,
-    OLLAMA_MAX_RETRIES,
 )
 from src.ingestion.quote_attribution import is_quote, split_quote_and_prose
 
@@ -37,54 +44,12 @@ SECTIONS_DIR = GROUPING_SECTIONS_DIR
 SKIP_KINDS = {"LINK", "ANNOTATION", "DRAWING"}
 RESOURCE_KINDS = {"IMAGE", "CODE_BLOCK", "TABLE"}
 
-PROMPT = """\
-You are given a numbered list of elements extracted from a document section.
-
-Your task: for each PARAGRAPH, determine which resources it is associated with.
-Resources are elements of kind IMAGE, CODE_BLOCK, or TABLE — identified by their index number.
-
-A PARAGRAPH is "associated" with a resource if:
-- It introduces the resource (e.g., "consider the following code:", "as shown in Figure 1-1")
-- It explains the resource (e.g., "This query returns...", "The diagram above shows...")
-- It describes or references the resource in any way
-
-Important:
-- Only associate PARAGRAPHs with IMAGE, CODE_BLOCK, or TABLE elements. Never with HEADING or CAPTION.
-- A PARAGRAPH can be associated with zero or more resources.
-- A resource can be associated with at most one PARAGRAPH.
-- If a PARAGRAPH does not reference any resource, give it an empty list.
-- Include ALL PARAGRAPH indices in your output.
-
-Additionally, flag paragraphs that contain an inline numbered or bulleted list of 2+ items
-(e.g. "... needed functionality. For example, many applications need to: 1. First item. 2. Second item. 3. Third item.").
-Do NOT flag prose that merely mentions numbers (e.g. "In the 1970s...").
-Return these as a list of paragraph indices under "lists".
-
-Output valid JSON only:
-{{"associations": {{"<paragraph_index>": [<resource_indices>], ...}}, "lists": [<paragraph_index>, ...]}}
-
-Example input:
-[0] HEADING Introduction
-[1] PARAGRAPH This chapter introduces key concepts. Consider the following diagram:
-[2] IMAGE path/to/diagram.png
-[3] CAPTION Figure 1. System overview.
-[4] PARAGRAPH The system has three main components.
-[5] PARAGRAPH The next four chapters go through key topics: 1. Chapter 1 introduces terminology. 2. Chapter 2 compares data models. 3. Chapter 3 covers storage engines.
-
-Example output:
-{{"associations": {{"1": [2], "4": [], "5": []}}, "lists": [5]}}
-
-Now analyze these elements:
-{numbered_elements}"""
-
-
 # --- Data structures ---
 
 @dataclass
 class Element:
     kind: str       # HEADING, PARAGRAPH, LIST_ITEM, IMAGE, TABLE, CAPTION, LINK, etc.
     text: str       # content (path for IMAGE/TABLE/CODE_BLOCK)
-    summary: str | None = None  # short bullet-friendly version (LIST_ITEM only)
 
 
 @dataclass
@@ -133,15 +98,12 @@ def serialize_groups(groups: list[ContentGroup]) -> str:
         GROUP 1: paragraph
           PARAGRAPH The first four chapters...
           LIST_ITEM Chapter 1 introduces the terminology...
-          SUMMARY: Terminology & approach
     """
     blocks = []
     for i, group in enumerate(groups):
         lines = [f"GROUP {i}: {group.kind}"]
         for el in group.elements:
             lines.append(f"  {el.kind} {el.text}")
-            if el.summary:
-                lines.append(f"  SUMMARY: {el.summary}")
         blocks.append("\n".join(lines))
     return "\n\n".join(blocks) + "\n"
 
@@ -166,10 +128,10 @@ def deserialize_groups(text: str) -> list[ContentGroup]:
             current_elements = []
             continue
 
-        # Summary metadata for previous element: "SUMMARY: text"
-        summary_match = re.match(r"^SUMMARY:\s*(.*)$", line)
-        if summary_match and current_elements:
-            current_elements[-1].summary = summary_match.group(1).strip()
+        # Legacy SUMMARY: lines (older content_groups files have them — the
+        # summary layer was removed when scroll/build.py switched to
+        # display-equals-narration). Skip them so old files keep parsing.
+        if line.startswith("SUMMARY:"):
             continue
 
         # Element line: "  KIND text..."
@@ -240,86 +202,6 @@ def parse_section(content: str) -> list[Element]:
     return expanded
 
 
-# --- LLM call ---
-
-def _build_prompt(elements: list[Element]) -> str:
-    """Build the LLM prompt with numbered elements."""
-    lines = []
-    for i, el in enumerate(elements):
-        lines.append(f"[{i}] {el.kind} {el.text}")
-    numbered = "\n".join(lines)
-    return PROMPT.format(numbered_elements=numbered)
-
-
-def _call_ollama(prompt: str) -> str:
-    """Call Ollama chat API and return the response text."""
-    response = requests.post(
-        f"{OLLAMA_BASE_URL}/api/chat",
-        json={
-            "model": OLLAMA_CHAT_MODEL,
-            "messages": [
-                {"role": "user", "content": prompt},
-            ],
-            "stream": False,
-            "format": "json",
-            "options": {"num_ctx": 16384, "temperature": 0},
-        },
-        timeout=300,
-    )
-    response.raise_for_status()
-    return response.json()["message"]["content"]
-
-
-def _parse_llm_response(
-    response_text: str,
-    elements: list[Element],
-) -> tuple[dict[int, list[int]], set[int]]:
-    """Parse LLM JSON response into (associations, list_paragraph_indices).
-
-    associations: {paragraph_index: [resource_indices]}
-    list_paragraph_indices: {paragraph_index, ...} — paragraphs that contain embedded lists
-    """
-    data = json.loads(response_text)
-
-    associations_raw = data.get("associations", {})
-    if not isinstance(associations_raw, dict):
-        associations_raw = {}
-
-    associations: dict[int, list[int]] = {}
-    for key, value in associations_raw.items():
-        try:
-            para_idx = int(key)
-        except (TypeError, ValueError):
-            continue
-        if para_idx < 0 or para_idx >= len(elements):
-            continue
-        if elements[para_idx].kind != "PARAGRAPH":
-            continue
-        resource_indices = []
-        if isinstance(value, list):
-            for r_idx in value:
-                try:
-                    r_idx_int = int(r_idx)
-                except (TypeError, ValueError):
-                    continue
-                if 0 <= r_idx_int < len(elements) and elements[r_idx_int].kind in RESOURCE_KINDS:
-                    resource_indices.append(r_idx_int)
-        associations[para_idx] = resource_indices
-
-    lists_raw = data.get("lists", [])
-    list_indices: set[int] = set()
-    if isinstance(lists_raw, list):
-        for idx in lists_raw:
-            try:
-                p = int(idx)
-            except (TypeError, ValueError):
-                continue
-            if 0 <= p < len(elements) and elements[p].kind == "PARAGRAPH":
-                list_indices.add(p)
-
-    return associations, list_indices
-
-
 # --- Embedded list splitting (regex) ---
 
 # Matches numbered markers at start of segment: "1. ", "2) ", "(3) ", "a. ", etc.
@@ -333,15 +215,92 @@ _LIST_MARKER_RE = re.compile(
     r"(?:^|(?<=\s))[•·*]\s"                     # "• " / "· " / "* "
 )
 
+# Roman → int for the tiny subset used as list markers (i…xxx covers far
+# more than any real inline list needs).
+_ROMAN_VALUES = {"i": 1, "v": 5, "x": 10}
+
+
+def _roman_to_int(s: str) -> int | None:
+    s = s.lower()
+    if not s or not all(c in _ROMAN_VALUES for c in s):
+        return None
+    total = 0
+    prev = 0
+    for c in reversed(s):
+        v = _ROMAN_VALUES[c]
+        total += v if v >= prev else -v
+        prev = v
+    return total if total > 0 else None
+
+
+def _marker_value(match: "re.Match[str]") -> tuple[str, int] | None:
+    """Classify a marker match by (type_tag, integer_value). Returns None
+    for unrecognised tokens — the caller treats that as "not a list"."""
+    stripped = re.sub(r"[()\.\s]", "", match.group(0))
+    if not stripped:
+        return None
+    if stripped in ("•", "·", "*"):
+        return "bullet", 0
+    if stripped.isdigit():
+        return "digit", int(stripped)
+    if len(stripped) == 1 and stripped.isalpha() and stripped.islower():
+        # Don't classify `i`, `v`, `x` as letters — they belong to the roman
+        # bucket so a roman/letter mix doesn't pass the same-type check.
+        if stripped in _ROMAN_VALUES:
+            return "roman", _ROMAN_VALUES[stripped]
+        return "letter", ord(stripped) - ord("a") + 1
+    roman = _roman_to_int(stripped)
+    if roman is not None and 1 <= roman <= 30:
+        return "roman", roman
+    return None
+
+
+def _is_real_inline_list(matches: list["re.Match[str]"]) -> bool:
+    """Validate that the matched markers form a real inline list.
+
+    The bare ``_LIST_MARKER_RE`` matches plenty of accidental patterns —
+    page references (``... page 6. ... page 10. ... page 18.``), footnote
+    markers next to chapter parentheticals (``i. ... Chapter 4)``), and so
+    on. These passed through the old LLM-flagged path because the LLM
+    judged them not lists; the new unconditional regex doesn't, so we
+    validate here. A real list:
+
+    - Has ≥2 markers of the same type (all digit / all letter / all roman /
+      all bullet — no mixing).
+    - For numbered/lettered/roman types: values strictly increase by 1 and
+      start at the type's first value (1 / a / i). This rejects ``6. 10.
+      18.`` (skips, doesn't start at 1) and ``i. 4)`` (mixed type).
+    - Bullet glyphs (``•`` etc.) are exempt from the sequence check — two
+      or more identical bullets are always a list.
+    """
+    if len(matches) < 2:
+        return False
+    bullets_only = all(m.group(0).strip() in ("•", "·", "*") for m in matches)
+    if bullets_only:
+        return True
+    classifications = [_marker_value(m) for m in matches]
+    if any(c is None for c in classifications):
+        return False
+    types = {c[0] for c in classifications}
+    if len(types) > 1:
+        return False
+    values = [c[1] for c in classifications]
+    if values[0] != 1:
+        return False
+    return values == list(range(1, len(values) + 1))
+
 
 def _split_embedded_list(paragraph_text: str) -> tuple[str, list[str]] | None:
     """Split a paragraph into (intro, [items]) if it contains an inline list.
 
-    Returns None if the text doesn't look like a list (fewer than 2 markers found).
+    Returns None unless the matched markers form a real, sequential,
+    same-type list (see ``_is_real_inline_list``). The validation step is
+    what keeps us safely deterministic — without it, the regex would
+    falsely split paragraphs that contain page numbers, footnote refs, or
+    chapter parentheticals that happen to match the marker pattern.
     """
-    # Find all marker positions
     matches = list(_LIST_MARKER_RE.finditer(paragraph_text))
-    if len(matches) < 2:
+    if not _is_real_inline_list(matches):
         return None
 
     intro = paragraph_text[: matches[0].start()].strip()
@@ -358,10 +317,13 @@ def _split_embedded_list(paragraph_text: str) -> tuple[str, list[str]] | None:
     return intro, items
 
 
-# --- Structural fallback ---
+# --- Assembly ---
 
-def _structural_fallback(elements: list[Element]) -> list[ContentGroup]:
-    """Forward-scan grouping without LLM. Used when LLM is unavailable or fails."""
+def _assemble_groups(elements: list[Element]) -> list[ContentGroup]:
+    """Forward-scan assembly of ContentGroups. Resources and list items are
+    absorbed into the preceding PARAGRAPH; HEADINGs and QUOTEs are always
+    standalone; orphan resources/list_items become their own groups.
+    """
     groups: list[ContentGroup] = []
     i = 0
 
@@ -436,30 +398,20 @@ def _structural_fallback(elements: list[Element]) -> list[ContentGroup]:
     return groups
 
 
-# --- LLM-based grouping ---
+# --- Element expansion ---
 
-def _apply_embedded_lists(
-    elements: list[Element],
-    associations: dict[int, list[int]],
-    list_indices: set[int],
-) -> tuple[list[Element], dict[int, list[int]]]:
-    """Rewrite elements by splitting paragraphs flagged as containing lists.
+def _expand_embedded_lists(elements: list[Element]) -> list[Element]:
+    """Split every PARAGRAPH that contains an inline numbered/bulleted list
+    into PARAGRAPH (intro) + LIST_ITEMs.
 
-    For each flagged paragraph, apply the regex splitter. If it finds items:
-    - Replace its text with the intro
-    - Insert LIST_ITEM elements immediately after it
-    - Remap all indices in associations to account for the insertions
+    ``_split_embedded_list`` is self-gating — it returns ``None`` when a
+    paragraph has fewer than 2 list markers — so we can run it on every
+    PARAGRAPH; paragraphs that aren't lists pass through unchanged. Replaces
+    the old LLM-flag-then-split flow.
     """
-    if not list_indices:
-        return elements, associations
-
     new_elements: list[Element] = []
-    index_map: dict[int, int] = {}
-
     for old_idx, el in enumerate(elements):
-        index_map[old_idx] = len(new_elements)
-
-        if el.kind == "PARAGRAPH" and old_idx in list_indices:
+        if el.kind == "PARAGRAPH":
             split = _split_embedded_list(el.text)
             if split is not None:
                 intro, items = split
@@ -468,141 +420,8 @@ def _apply_embedded_lists(
                     new_elements.append(Element(kind="LIST_ITEM", text=item_text))
                 logger.info(f"Split paragraph {old_idx} into intro + {len(items)} list items")
                 continue
-
         new_elements.append(el)
-
-    new_associations: dict[int, list[int]] = {}
-    for old_para_idx, resource_indices in associations.items():
-        new_para_idx = index_map.get(old_para_idx)
-        if new_para_idx is None:
-            continue
-        new_resources = [index_map[r] for r in resource_indices if r in index_map]
-        new_associations[new_para_idx] = new_resources
-
-    return new_elements, new_associations
-
-
-def _assemble_groups(elements: list[Element], associations: dict[int, list[int]]) -> list[ContentGroup]:
-    """Build ContentGroup list from elements and LLM-provided associations."""
-    groups: list[ContentGroup] = []
-
-    # Track which resource indices are claimed by a paragraph
-    claimed_resources: set[int] = set()
-    for resource_indices in associations.values():
-        claimed_resources.update(resource_indices)
-
-    # Track which elements have been consumed
-    consumed: set[int] = set()
-
-    i = 0
-    while i < len(elements):
-        if i in consumed:
-            i += 1
-            continue
-
-        el = elements[i]
-
-        if el.kind in SKIP_KINDS:
-            i += 1
-            continue
-
-        if el.kind == "HEADING":
-            groups.append(ContentGroup(kind="heading", elements=[el]))
-            consumed.add(i)
-            i += 1
-            continue
-
-        if el.kind == "QUOTE":
-            # Quotes are always standalone (see structural fallback).
-            groups.append(ContentGroup(kind="quote", elements=[el]))
-            consumed.add(i)
-            i += 1
-            continue
-
-        if el.kind == "PARAGRAPH":
-            group_els = [el]
-            consumed.add(i)
-
-            # Add LLM-associated resources (and their captions)
-            for r_idx in associations.get(i, []):
-                if r_idx not in consumed:
-                    group_els.append(elements[r_idx])
-                    consumed.add(r_idx)
-                    # Check for caption immediately after the resource
-                    cap_idx = r_idx + 1
-                    if (cap_idx < len(elements)
-                            and elements[cap_idx].kind == "CAPTION"
-                            and cap_idx not in consumed):
-                        group_els.append(elements[cap_idx])
-                        consumed.add(cap_idx)
-
-            # Greedily absorb consecutive LIST_ITEMs that follow this paragraph
-            j = i + 1
-            while j < len(elements):
-                if elements[j].kind == "LIST_ITEM" and j not in consumed:
-                    group_els.append(elements[j])
-                    consumed.add(j)
-                    j += 1
-                elif elements[j].kind in SKIP_KINDS:
-                    j += 1
-                elif elements[j].kind == "CAPTION" and j not in consumed:
-                    # Caption between paragraph and list items — attach if group has a resource
-                    if any(e.kind in RESOURCE_KINDS for e in group_els):
-                        group_els.append(elements[j])
-                        consumed.add(j)
-                    j += 1
-                elif elements[j].kind in RESOURCE_KINDS and j in claimed_resources:
-                    # This resource is claimed — skip past it (will be picked up by its paragraph)
-                    j += 1
-                else:
-                    break
-            groups.append(ContentGroup(kind="paragraph", elements=group_els))
-            i += 1
-            continue
-
-        if el.kind == "CAPTION":
-            # Orphaned caption — attach to last group if it has a resource
-            if groups and any(e.kind in RESOURCE_KINDS for e in groups[-1].elements):
-                groups[-1].elements.append(el)
-            consumed.add(i)
-            i += 1
-            continue
-
-        if el.kind in RESOURCE_KINDS:
-            # Unclaimed standalone resource
-            if i in claimed_resources:
-                # Will be consumed by its associated paragraph — skip
-                i += 1
-                continue
-            kind_map = {"IMAGE": "image", "CODE_BLOCK": "code_block", "TABLE": "table"}
-            group_els = [el]
-            consumed.add(i)
-            # Absorb following captions
-            j = i + 1
-            while j < len(elements) and elements[j].kind == "CAPTION" and j not in consumed:
-                group_els.append(elements[j])
-                consumed.add(j)
-                j += 1
-            groups.append(ContentGroup(kind=kind_map[el.kind], elements=group_els))
-            i += 1
-            continue
-
-        if el.kind == "LIST_ITEM":
-            # Standalone list items (not preceded by a paragraph)
-            group_els = [el]
-            consumed.add(i)
-            j = i + 1
-            while j < len(elements) and elements[j].kind == "LIST_ITEM" and j not in consumed:
-                group_els.append(elements[j])
-                consumed.add(j)
-                j += 1
-            groups.append(ContentGroup(kind="list", elements=group_els))
-            i += 1
-            continue
-
-        i += 1
-
-    return groups
+    return new_elements
 
 
 def _merge_adjacent_resources(groups: list[ContentGroup]) -> list[ContentGroup]:
@@ -628,205 +447,17 @@ def _merge_adjacent_resources(groups: list[ContentGroup]) -> list[ContentGroup]:
     return merged
 
 
-SUMMARY_PROMPT = """\
-You are given a list of bullet items from a document. For each item, write a
-SHORT on-screen bullet in the voice of a reader taking notes — preserving the
-concrete content, not abstracting it away.
-
-Style:
-- Write the way you'd jot a note in a notebook while reading. Capture the
-  specific facts the author chose to include. Numbers, names, comparisons,
-  and key relationships MUST survive into the summary if they're in the
-  source.
-- Aim for 8 to 15 words. Compactness matters but not at the cost of losing
-  the central fact.
-- Use sentence case (capitalize first word, no trailing punctuation).
-- Do NOT use periods at the end. Do NOT add bullet markers like "•" or numbers.
-- KEY-TERM RULE: if the item contains a parenthesised term — e.g.
-  "(databases)", "(stream processing)", "(Apache Kafka)" — that term is the
-  canonical short label the author chose for this item. The summary MUST
-  incorporate that term as one of its words (not in parentheses, just as part
-  of the phrase). Drop the parentheses themselves; keep the term.
-
-Examples (illustrative — do not copy verbatim):
-
-Source: "Store data so that they can find it again later (databases)"
-  → "Databases store data for later retrieval"  ✓
-  → "Store data later" ✗  (drops the key term "databases")
-
-Source: "On average, a tweet is delivered to about 75 followers, so 4.6k
-         tweets per second become 345k writes per second to the home
-         timeline caches."
-  → "75 followers per tweet → 4.6k tweets/sec become 345k writes/sec"  ✓
-  → "Tweets fan out to many followers"  ✗  (drops every concrete number)
-  → "Approach 2 prefers work at write time"  ✗  (also drops the numbers)
-
-Source: "In an ideal world, the running time of a batch job is the size of
-         the dataset divided by the throughput. In practice, the running
-         time is often longer, due to skew and slow tasks."
-  → "Batch runtime: ideal = data/throughput, actual is longer from skew"  ✓
-  → "Batch job runtime issues"  ✗  (loses the formula and the reason)
-
-Items:
-{items}
-
-Output valid JSON only:
-{{"summaries": ["summary 1", "summary 2", ...]}}
-
-The summaries array must have the same length as the input items, in the same order."""
-
-
-def _first_sentence_fallback(text: str) -> str:
-    """Take the first sentence of an item as a last-ditch summary.
-
-    Better than the previous "first 5 words" fallback because it gives a
-    complete thought rather than an arbitrary clip mid-clause. Strips any
-    leading bullet markers so the result doesn't render with a stray "•".
-    """
-    cleaned = re.sub(r"^[•·\-*]\s*", "", text).strip()
-    m = re.match(r"^[^.!?\n]+[.!?]", cleaned)
-    if m:
-        return m.group(0).rstrip(".!?").strip()
-    words = cleaned.split()
-    if len(words) > 15:
-        return " ".join(words[:15])
-    return cleaned
-
-
-def _parse_summaries(response_text: str, expected: int) -> list[str] | None:
-    """Parse and validate the LLM's summary response. Returns a list of
-    ``expected`` summaries, or ``None`` if the response is malformed.
-    """
-    try:
-        data = json.loads(response_text)
-    except json.JSONDecodeError:
-        return None
-    summaries = data.get("summaries", [])
-    if not isinstance(summaries, list) or len(summaries) != expected:
-        return None
-    return [str(s).strip().rstrip(".") for s in summaries]
-
-
-def _summarize_one(item_text: str) -> str | None:
-    """Single-item retry: ask the LLM to summarize one item at a time. The
-    JSON schema is identical to the batch path but the LLM is much more
-    reliable when only producing one summary, so this is the fallback when
-    the batch call returns the wrong array length.
-    """
-    single_prompt = SUMMARY_PROMPT.format(items=f"1. {item_text}")
-    for attempt in range(1, OLLAMA_MAX_RETRIES + 1):
-        try:
-            response_text = _call_ollama(single_prompt)
-            parsed = _parse_summaries(response_text, expected=1)
-            if parsed:
-                return parsed[0]
-        except (requests.RequestException, json.JSONDecodeError, ValueError, KeyError) as exc:
-            logger.warning(
-                f"Single-item summary attempt {attempt}/{OLLAMA_MAX_RETRIES} failed: {exc}"
-            )
-    return None
-
-
-def _generate_list_item_summaries(items: list[str]) -> list[str]:
-    """Summarize a list of items into on-screen bullet text. Tries a batch
-    call first (one LLM round-trip for the whole list), falls back to
-    per-item calls if the batch result is malformed, and finally to the
-    first-sentence fallback if even single-item calls fail.
-
-    The cascade exists because the new note-taking SUMMARY_PROMPT is long
-    enough that local LLMs occasionally drop items or collapse the JSON
-    array into a single string. The per-item retry sidesteps that — each
-    call only needs to produce one summary, which is much more reliable.
-    """
-    if not items:
-        return []
-
-    numbered = "\n".join(f"{i + 1}. {text}" for i, text in enumerate(items))
-    prompt = SUMMARY_PROMPT.format(items=numbered)
-
-    for attempt in range(1, OLLAMA_MAX_RETRIES + 1):
-        try:
-            response_text = _call_ollama(prompt)
-            parsed = _parse_summaries(response_text, expected=len(items))
-            if parsed:
-                return parsed
-            logger.warning(
-                f"Batch summary count mismatch on attempt {attempt}/{OLLAMA_MAX_RETRIES}"
-            )
-        except (requests.RequestException, json.JSONDecodeError, ValueError, KeyError) as exc:
-            logger.warning(f"Batch summary attempt {attempt}/{OLLAMA_MAX_RETRIES} failed: {exc}")
-
-    # Fallback 1: per-item retries. One LLM call per item — slower but more
-    # reliable than the batch call.
-    logger.warning(f"Batch failed; retrying {len(items)} items individually")
-    results: list[str] = []
-    n_fallback_truncated = 0
-    for item in items:
-        summary = _summarize_one(item)
-        if summary:
-            results.append(summary)
-        else:
-            # Fallback 2: first complete sentence of the source. A real
-            # thought instead of an arbitrary 5-word clip.
-            results.append(_first_sentence_fallback(item))
-            n_fallback_truncated += 1
-    if n_fallback_truncated:
-        logger.warning(
-            f"{n_fallback_truncated}/{len(items)} items fell through to first-sentence fallback"
-        )
-    return results
-
-
-def _attach_summaries_to_groups(groups: list[ContentGroup]) -> None:
-    """For each group containing LIST_ITEMs, generate summaries via LLM (one call per group)."""
-    for group in groups:
-        list_items = [el for el in group.elements if el.kind == "LIST_ITEM"]
-        # Skip if all items already have summaries (re-run case)
-        if not list_items or all(item.summary for item in list_items):
-            continue
-        item_texts = [item.text for item in list_items]
-        summaries = _generate_list_item_summaries(item_texts)
-        for item, summary in zip(list_items, summaries):
-            item.summary = summary
-        logger.info(f"Generated {len(summaries)} list item summaries for group ({group.kind})")
-
-
 def group_elements(elements: list[Element]) -> list[ContentGroup]:
-    """Group elements using LLM associations with structural fallback."""
-    has_paragraphs = any(e.kind == "PARAGRAPH" for e in elements)
-    has_resources = any(e.kind in RESOURCE_KINDS for e in elements)
-
-    # If nothing to ask the LLM about, use structural grouping directly.
-    # (Embedded list detection still requires the LLM — but only when there are paragraphs.)
-    if not has_paragraphs:
-        logger.info("No paragraphs, using structural grouping")
-        groups = _structural_fallback(elements)
-        _attach_summaries_to_groups(groups)
-        return groups
-
-    # Try LLM-based grouping (associations + embedded-list detection)
-    for attempt in range(1, OLLAMA_MAX_RETRIES + 1):
-        try:
-            prompt = _build_prompt(elements)
-            response_text = _call_ollama(prompt)
-            associations, list_indices = _parse_llm_response(response_text, elements)
-            logger.info(
-                f"LLM grouped {len(associations)} paragraphs, "
-                f"flagged {len(list_indices)} as embedded lists"
-            )
-            new_elements, new_associations = _apply_embedded_lists(elements, associations, list_indices)
-            groups = _assemble_groups(new_elements, new_associations)
-            if has_resources:
-                groups = _merge_adjacent_resources(groups)
-            _attach_summaries_to_groups(groups)
-            return groups
-        except (requests.RequestException, json.JSONDecodeError, KeyError, ValueError) as exc:
-            logger.warning(f"LLM grouping attempt {attempt}/{OLLAMA_MAX_RETRIES} failed: {exc}")
-
-    logger.warning("LLM grouping failed, falling back to structural grouping")
-    groups = _structural_fallback(elements)
-    _attach_summaries_to_groups(groups)
-    return groups
+    """Group elements into ContentGroups via deterministic rules:
+    1. ``_expand_embedded_lists`` splits inline numbered lists into LIST_ITEMs
+    2. ``_assemble_groups`` forward-scans into HEADING / paragraph / quote /
+       resource / list groups
+    3. ``_merge_adjacent_resources`` safety-nets the rare HEADING→IMAGE→
+       PARAGRAPH layout where step 2 would otherwise leave an image standalone
+    """
+    elements = _expand_embedded_lists(elements)
+    groups = _assemble_groups(elements)
+    return _merge_adjacent_resources(groups)
 
 
 # --- File I/O ---
