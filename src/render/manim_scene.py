@@ -20,7 +20,7 @@ Image blocks load via manim's ``ImageMobject`` (raster) — code blocks /
 tables / images from the source PDF are all rasterized so they share one
 loading path.
 
-Note: this is a prototype. Tuning happens in ``src/scroll/build.py``
+Note: this is a prototype. Tuning happens in ``src/render/build.py``
 (``SCROLL_RATE_UNITS_PER_SEC``, ``CAMERA_LEAD``, ``INTER_BLOCK_PAD``,
 ``BLOCK_HEIGHT``) — re-running the build re-emits the instructions, manim
 re-renders against the new layout.

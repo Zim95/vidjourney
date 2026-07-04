@@ -66,23 +66,23 @@ chain them to run **all at once**.
 python -m src.ingestion.ingest_pdf /path/to/book.pdf
 
 # [2] Group sections → content groups
-python -m src.scene_grouping.llm_grouper --all                       # all pending
-python -m src.scene_grouping.llm_grouper --watch                     # cascade: group as ingest writes files
-python -m src.scene_grouping.llm_grouper pipeline/sections/section_3.txt   # one section
+python -m src.grouping.llm_grouper --all                       # all pending
+python -m src.grouping.llm_grouper --watch                     # cascade: group as ingest writes files
+python -m src.grouping.llm_grouper pipeline/sections/section_3.txt   # one section
 
 # [3] Render a section → narrated scroll mp4 (the slow stage)
-python -m src.scroll.build_raster 3                                  # one section, by number
+python -m src.render.build_raster 3                                  # one section, by number
 
 # [4] Pack rendered sections into ≥10-min Part videos
 python -m src.assembler.build_video --dry-run                        # preview the packing
 python -m src.assembler.build_video                                  # write the Parts
 
 # [5] Generate paste-ready YouTube metadata per Part
-python scripts/generate_descriptions.py
+python -m src.publisher.describe --all
 
 # [6] Upload to YouTube (optional — see Publishing to YouTube)
-python -m scripts.upload_to_youtube --dry-run
-python -m scripts.upload_to_youtube --limit 6
+python -m src.publisher.upload --dry-run
+python -m src.publisher.upload --limit 6
 ```
 
 Note: ingest, build_video, and generate_descriptions process **everything** in
@@ -98,16 +98,16 @@ step loops over every section):
 PDF=/path/to/book.pdf
 
 python -m src.ingestion.ingest_pdf "$PDF"            # 1. PDF → sections
-python -m src.scene_grouping.llm_grouper --all       # 2. sections → groups
+python -m src.grouping.llm_grouper --all       # 2. sections → groups
 
 for f in pipeline/sections/section_*.txt; do         # 3. render every section
   n=$(echo "$f" | sed -E 's/.*section_([0-9]+)\.txt/\1/')
-  python -m src.scroll.build_raster "$n"
+  python -m src.render.build_raster "$n"
 done
 
 python -m src.assembler.build_video                  # 4. pack into Parts
-python scripts/generate_descriptions.py              # 5. YouTube metadata
-# python -m scripts.upload_to_youtube --limit 6      # 6. (optional) publish
+python -m src.publisher.describe --all              # 5. YouTube metadata
+# python -m src.publisher.upload --limit 6      # 6. (optional) publish
 ```
 
 Tip: run the grouper in `--watch` mode in a second terminal **before** ingest,
@@ -133,11 +133,11 @@ One-time setup:
 3. Set `[youtube]` `playlist_id`, `publish_start_date`, and the thumbnail.
 
 ```bash
-python -m scripts.upload_to_youtube --whoami      # confirm which channel
-python -m scripts.upload_to_youtube --list        # list discovered Parts + schedule
-python -m scripts.upload_to_youtube --dry-run     # full plan, no upload
-python -m scripts.upload_to_youtube --limit 6     # upload N pending (≈6/day on free quota)
-python -m scripts.upload_to_youtube --part 14,15  # upload specific Parts
+python -m src.publisher.upload --whoami      # confirm which channel
+python -m src.publisher.upload --list        # list discovered Parts + schedule
+python -m src.publisher.upload --dry-run     # full plan, no upload
+python -m src.publisher.upload --limit 6     # upload N pending (≈6/day on free quota)
+python -m src.publisher.upload --part 14,15  # upload specific Parts
 ```
 
 Notes:
@@ -191,12 +191,12 @@ accurate.
 |---|---|
 | `configuration.cfg` | All tuneable settings (paths, models, YouTube, style) |
 | `src/ingestion/` | PDF → section files + extracted media; `ml/` = code classifier |
-| `src/scene_grouping/` | Deterministic grouping + listify + quote handling |
+| `src/grouping/` | Deterministic grouping + listify + quote handling |
 | `src/narration/` | Piper TTS |
-| `src/scroll/` | Scroll-canvas renderer (`build_raster.py` is the live path) |
+| `src/render/` | Scroll-canvas renderer (`build_raster.py` is the live path) |
 | `src/assembler/` | ffmpeg merge/concat + Part packaging (`build_video.py`) |
-| `src/publisher/` | YouTube upload (`youtube_uploader.py`) |
-| `scripts/` | `generate_descriptions.py`, `upload_to_youtube.py` |
+| `src/publisher/` | describe (`describe.py`), YouTube upload (`push_prepare.py` + `upload.py`) |
+
 | `pipeline/` | All generated artifacts (regenerable) |
 | `media/` | Manim's raw render output (regenerable) |
 | `models/` | Trained ML models (`code_rf.joblib`) |
@@ -214,11 +214,11 @@ See `LICENSE`.
 
 ```bash
 # list all parts + their scheduled dates
-.venv/bin/python -m scripts.upload_to_youtube --list
+.venv/bin/python -m src.publisher.upload --list
 
 # override the publish date for this run
-.venv/bin/python -m scripts.upload_to_youtube --limit 6 --publish-at 2026-07-04
+.venv/bin/python -m src.publisher.upload --limit 6 --publish-at 2026-07-04
 
 # which channel does the token point to
-.venv/bin/python -m scripts.upload_to_youtube --whoami
+.venv/bin/python -m src.publisher.upload --whoami
 ```

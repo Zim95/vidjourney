@@ -22,7 +22,7 @@ import json
 import os
 from pathlib import Path
 
-from src.scroll.manim_scene import ScrollScene
+from src.render.manim_scene import ScrollScene
 
 
 # How much vertical "headroom" the camera viewport needs above the canvas

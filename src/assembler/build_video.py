@@ -35,6 +35,7 @@ from pathlib import Path
 import requests
 
 from src.utils import logger, timer
+from src.scheduler import subprocess_slot
 from src.config.constants import (
     GROUPING_SECTIONS_DIR,
     GROUPING_BOOK_TITLE,
@@ -65,11 +66,12 @@ def _is_valid_mp4(path: Path) -> bool:
     fix landed. Both would render parts unplayable in QuickTime/browsers.
     """
     try:
-        r = subprocess.run(
-            ["ffprobe", "-v", "error", "-select_streams", "v:0",
-             "-show_entries", "stream=pix_fmt", "-of", "csv=p=0", str(path)],
-            capture_output=True, text=True, check=True,
-        )
+        with subprocess_slot():
+            r = subprocess.run(
+                ["ffprobe", "-v", "error", "-select_streams", "v:0",
+                 "-show_entries", "stream=pix_fmt", "-of", "csv=p=0", str(path)],
+                capture_output=True, text=True, check=True,
+            )
         return r.stdout.strip() == "yuv420p"
     except subprocess.CalledProcessError:
         return False
@@ -91,15 +93,16 @@ def _list_section_videos() -> list[tuple[int, Path]]:
 
 def _video_duration_seconds(path: Path) -> float:
     try:
-        result = subprocess.run(
-            [
-                "ffprobe", "-v", "error",
-                "-show_entries", "format=duration",
-                "-of", "default=noprint_wrappers=1:nokey=1",
-                str(path),
-            ],
-            capture_output=True, text=True, check=True,
-        )
+        with subprocess_slot():
+            result = subprocess.run(
+                [
+                    "ffprobe", "-v", "error",
+                    "-show_entries", "format=duration",
+                    "-of", "default=noprint_wrappers=1:nokey=1",
+                    str(path),
+                ],
+                capture_output=True, text=True, check=True,
+            )
         return float(result.stdout.strip())
     except (subprocess.CalledProcessError, ValueError) as exc:
         logger.warning(f"ffprobe failed for {path.name}: {exc}")
@@ -266,11 +269,12 @@ def _concat_videos(
         for p in paths:
             f.write(f"file '{p.resolve()}'\n")
     try:
-        subprocess.run(
-            ["ffmpeg", "-y", "-f", "concat", "-safe", "0",
-             "-i", str(list_file), "-c", "copy", str(output_file)],
-            check=True, capture_output=True,
-        )
+        with subprocess_slot():
+            subprocess.run(
+                ["ffmpeg", "-y", "-f", "concat", "-safe", "0",
+                 "-i", str(list_file), "-c", "copy", str(output_file)],
+                check=True, capture_output=True,
+            )
     finally:
         list_file.unlink(missing_ok=True)
     return output_file
@@ -330,12 +334,48 @@ def build_all_parts(dry_run: bool = False) -> list[Path]:
     return written
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Build ≥10-min Part videos from per-section scroll mp4s")
-    parser.add_argument("--dry-run", action="store_true", help="Show the packing plan without writing files")
-    args = parser.parse_args()
+def _assemble_watcher(sched, args):
+    """Repack all parts whenever a new section mp4 lands (build is idempotent)."""
+    from watchdog.observers import Observer
+    from watchdog.events import FileSystemEventHandler
 
-    paths = build_all_parts(dry_run=args.dry_run)
+    SCROLL_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+    def _rebuild():
+        try:
+            build_all_parts(dry_run=False)
+        except Exception as exc:
+            logger.error(f"[assemble] repack failed: {exc}")
+
+    class _Handler(FileSystemEventHandler):
+        def on_created(self, event):
+            p = Path(event.src_path)
+            if not event.is_directory and p.name.endswith("_raster.mp4"):
+                logger.info(f"[assemble] new section mp4: {p.name} → repack")
+                sched.io.submit(_rebuild)
+
+    obs = Observer()
+    obs.schedule(_Handler(), str(SCROLL_OUTPUT_DIR), recursive=False)
+    obs.start()
+    return obs
+
+
+from src.stage_cli import Stage, run_stage
+
+STAGE = Stage(
+    name="assembler.build_video",
+    run_all_fn=lambda sched, args: build_all_parts(dry_run=args.dry_run),
+    start_watcher_fn=_assemble_watcher,
+    watch_dir=SCROLL_OUTPUT_DIR,
+    extra_args=[("--dry-run", {"action": "store_true", "help": "show packing plan without writing"})],
+    supports_item=False,
+    pool="io",
+)
+
+
+if __name__ == "__main__":
+    # Build all parts:  --all   (preview: --all --dry-run;  cascade: --watch)
+    run_stage(STAGE)
     if args.dry_run:
         print(f"\nDry run — would write {len(paths)} part files:")
         for p in paths:

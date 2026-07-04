@@ -334,5 +334,44 @@ def main() -> None:
     print(f"\nWrote {len(parts)} description files + INDEX.md to {OUT_DIR}/")
 
 
+def _describe_watcher(sched, args):
+    """Regenerate all part descriptions whenever a new part mp4 lands."""
+    from watchdog.observers import Observer
+    from watchdog.events import FileSystemEventHandler
+
+    PARTS_DIR.mkdir(parents=True, exist_ok=True)
+
+    def _regen():
+        try:
+            main()
+        except Exception as exc:
+            print(f"[describe] failed: {exc}")
+
+    class _Handler(FileSystemEventHandler):
+        def on_created(self, event):
+            p = Path(event.src_path)
+            if not event.is_directory and p.suffix == ".mp4":
+                print(f"[describe] new part: {p.name} → regenerate")
+                sched.io.submit(_regen)
+
+    obs = Observer()
+    obs.schedule(_Handler(), str(PARTS_DIR), recursive=False)
+    obs.start()
+    return obs
+
+
+from src.stage_cli import Stage, run_stage
+
+STAGE = Stage(
+    name="publisher.describe",
+    run_all_fn=lambda sched, args: main(),
+    start_watcher_fn=_describe_watcher,
+    watch_dir=PARTS_DIR,
+    supports_item=False,
+    pool="io",
+)
+
+
 if __name__ == "__main__":
-    main()
+    # Generate all part descriptions:  --all   (cascade: --watch)
+    run_stage(STAGE)

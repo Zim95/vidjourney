@@ -6,6 +6,7 @@ import tempfile
 from pathlib import Path
 
 from src.utils import logger
+from src.scheduler import subprocess_slot
 
 
 def concat_wavs(wav_paths: list[Path], output_path: Path) -> Path:
@@ -27,12 +28,13 @@ def concat_wavs(wav_paths: list[Path], output_path: Path) -> Path:
             f.write(f"file '{wav.resolve()}'\n")
 
     try:
-        subprocess.run(
-            ["ffmpeg", "-y", "-f", "concat", "-safe", "0",
-             "-i", str(list_file), "-c", "copy", str(output_path)],
-            check=True,
-            capture_output=True,
-        )
+        with subprocess_slot():
+            subprocess.run(
+                ["ffmpeg", "-y", "-f", "concat", "-safe", "0",
+                 "-i", str(list_file), "-c", "copy", str(output_path)],
+                check=True,
+                capture_output=True,
+            )
     finally:
         list_file.unlink(missing_ok=True)
 

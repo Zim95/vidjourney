@@ -11,7 +11,7 @@ Used by:
 - ``src.ingestion.section_detection.section_writer`` — emits ``QUOTE`` instead
   of ``PARAGRAPH`` at ingestion time so quote-shaped content gets a first-class
   marker, alongside HEADING / IMAGE / LIST_ITEM / etc.
-- ``src.scene_grouping.llm_grouper`` — safety net for any quote that slipped
+- ``src.grouping.llm_grouper`` — safety net for any quote that slipped
   through ingestion (older section files generated before this module existed,
   or paragraphs the PDF parser concatenated with the previous block).
 

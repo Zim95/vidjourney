@@ -81,10 +81,15 @@ ML_RANDOM_STATE = _cfg_int("ml", "random_state", 42)
 
 # Inference threshold for line-level code detection
 ML_CODE_LINE_THRESHOLD = float(_cfg_text("ml", "code_line_threshold", "0.4"))
+# Review gate: code lines whose proba is within this margin of the threshold are
+# "borderline" and get surfaced for human confirmation.
+ML_CODE_LINE_CONFIDENCE_MARGIN = float(_cfg_text("ml", "code_line_confidence_margin", "0.15"))
 
 # Grouping configuration
 GROUPING_SECTIONS_DIR = _cfg_path("grouping", "sections_dir", "pipeline/sections")
 GROUPING_CONTENT_GROUPS_DIR = _cfg_path("grouping", "content_groups_dir", "pipeline/groups/content_groups")
+# Review gate output: sections that passed (auto or human) the review gate.
+GROUPING_APPROVED_DIR = _cfg_path("grouping", "approved_dir", "pipeline/groups/approved")
 
 # Narration
 GROUPING_PIPER_MODEL = _cfg_text("grouping", "piper_model", "en_US-lessac-medium.onnx")

@@ -24,8 +24,8 @@ Structural rules:
 - LINK / ANNOTATION / DRAWING → skipped (metadata)
 
 Usage:
-    python -m src.scene_grouping.llm_grouper pipeline/sections/section_3.txt
-    python -m src.scene_grouping.llm_grouper --all
+    python -m src.grouping.llm_grouper pipeline/sections/section_3.txt
+    python -m src.grouping.llm_grouper --all
 """
 import re
 from dataclasses import dataclass
@@ -579,41 +579,18 @@ def _print_groups(groups: list[ContentGroup]) -> None:
                 print(f"    {path} → {cap or '(none)'}")
 
 
+from src.stage_cli import Stage, run_stage
+
+STAGE = Stage(
+    name="grouping.llm_grouper",
+    process_one=process_section,          # Path(section_*.txt) -> content_groups/section_*.txt
+    parse_item=Path,
+    run_all_fn=lambda sched, args: process_all(sched.io),
+    start_watcher_fn=lambda sched, args: start_watcher(sched.io),
+    watch_dir=SECTIONS_DIR,
+    pool="io",
+)
+
+
 if __name__ == "__main__":
-    import sys
-    import time
-    import argparse
-    from concurrent.futures import ThreadPoolExecutor
-
-    from src.config.constants import PIPELINE_THREAD_WORKERS
-
-    parser = argparse.ArgumentParser(description="LLM-based element grouper")
-    parser.add_argument("section_file", type=str, nargs="?", help="Path to a section file")
-    parser.add_argument("--all", action="store_true", help="Process all pending sections (concurrent)")
-    parser.add_argument("--watch", action="store_true", help="Watch sections dir for new files")
-    args = parser.parse_args()
-
-    _executor = ThreadPoolExecutor(max_workers=PIPELINE_THREAD_WORKERS)
-
-    if args.watch:
-        logger.info(f"Watching {SECTIONS_DIR} for new sections...")
-        observer = start_watcher(executor=_executor)
-        try:
-            while True:
-                time.sleep(1)
-        except KeyboardInterrupt:
-            stop_watcher(observer)
-            _executor.shutdown(wait=True)
-            logger.info("Stopped.")
-    elif args.all:
-        process_all(executor=_executor)
-        _executor.shutdown(wait=True)
-    elif args.section_file:
-        path = Path(args.section_file)
-        if not path.exists():
-            print(f"File not found: {path}")
-            sys.exit(1)
-        groups = group_section_file(path)
-        _print_groups(groups)
-    else:
-        parser.print_help()
+    run_stage(STAGE)

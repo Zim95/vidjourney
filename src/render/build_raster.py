@@ -1,7 +1,7 @@
 """
 Pre-rasterize + ffmpeg-pan build path.
 
-Shares the upstream pipeline with :mod:`src.scroll.build` (content_groups
+Shares the upstream pipeline with :mod:`src.render.build` (content_groups
 → blocks → narration → layout → instructions.json); the only difference
 is the final mp4-creation step. Instead of manim animating the camera
 through 60 frames/sec of scrolling, we:
@@ -20,7 +20,7 @@ the single-frame manim render is the only expensive step. The ffmpeg pan
 is fast even at 2× supersample because it's just memory translation.
 
 CLI:
-    python -m src.scroll.build_raster 1
+    python -m src.render.build_raster 1
 """
 from __future__ import annotations
 
@@ -32,17 +32,18 @@ import sys
 from pathlib import Path
 
 from src.utils import logger
-from src.config.constants import MANIM_PYTHON
+from src.config.constants import MANIM_PYTHON, GROUPING_APPROVED_DIR
+from src.scheduler import subprocess_slot
 
-from src.scroll.build import (
+from src.render.build import (
     _camera_path,
     _groups_to_blocks,
     _layout,
     _narrate_blocks,
     _write_instructions,
 )
-from src.scroll.canvas_scene import CANVAS_TOP_PADDING, CANVAS_BOTTOM_PADDING
-from src.scene_grouping.llm_grouper import deserialize_groups
+from src.render.canvas_scene import CANVAS_TOP_PADDING, CANVAS_BOTTOM_PADDING
+from src.grouping.llm_grouper import deserialize_groups
 
 
 SCROLL_DIR = Path("pipeline/scroll")
@@ -50,6 +51,16 @@ CANVAS_DIR = SCROLL_DIR / "canvas"      # tall PNGs go here
 OUTPUT_DIR = SCROLL_DIR / "output"
 NARRATION_DIR = SCROLL_DIR / "narration"
 GROUPING_CONTENT_GROUPS_DIR = Path("pipeline/groups/content_groups")
+# Render consumes the review gate's approved/ output; if a section hasn't been
+# through the gate (ungated/partial run) it falls back to content_groups.
+INPUT_DIR = GROUPING_APPROVED_DIR
+FALLBACK_DIR = GROUPING_CONTENT_GROUPS_DIR
+
+
+def _render_input(section_name: str) -> Path:
+    """approved/section_N.txt if present, else content_groups/section_N.txt."""
+    approved = INPUT_DIR / f"{section_name}.txt"
+    return approved if approved.exists() else FALLBACK_DIR / f"{section_name}.txt"
 
 # Supersample factor. 2× means we render the canvas PNG at 3840 wide and
 # crop+downscale to 1920×1080 — the downsample is the sub-pixel smoother.
@@ -224,13 +235,14 @@ def _render_canvas_png(instructions_path: Path, section_name: str, supersample: 
         f"--resolution={pixel_width},{pixel_height}",
         "-o", f"{section_name}_canvas",
         "--media_dir", "media/scroll_raster",
-        "src/scroll/canvas_scene.py", "CanvasScene",
+        "src/render/canvas_scene.py", "CanvasScene",
     ]
     logger.info(
         f"Rendering canvas PNG ({pixel_width}×{pixel_height}, "
         f"canvas_height={canvas_height:.1f}u, supersample={supersample}×): {' '.join(cmd)}"
     )
-    subprocess.run(cmd, env=env, check=True)
+    with subprocess_slot():
+        subprocess.run(cmd, env=env, check=True)
 
     # Manim writes to media/scroll_raster/images/canvas_scene/<name>.png
     manim_images_root = Path("media/scroll_raster/images/canvas_scene")
@@ -296,20 +308,25 @@ def _ffmpeg_pan_and_merge(
     logger.info(f"Running ffmpeg pan: {len(camera_path)} waypoints over {total_duration:.1f}s")
     if output_mp4.exists():
         output_mp4.unlink()
-    subprocess.run(cmd, check=True, capture_output=True)
+    with subprocess_slot():
+        subprocess.run(cmd, check=True, capture_output=True)
     logger.info(f"Raster mp4: {output_mp4}")
     return output_mp4
 
 
 def build_section_raster(section_id: int) -> Path:
     section_name = f"section_{section_id}"
-    cg_path = GROUPING_CONTENT_GROUPS_DIR / f"{section_name}.txt"
+    cg_path = _render_input(section_name)
     if not cg_path.exists():
-        logger.error(f"Missing content_groups: {cg_path}")
-        sys.exit(1)
+        # Raise (not sys.exit) so a pool/watch run reports and continues.
+        raise FileNotFoundError(
+            f"Missing render input for {section_name}: neither {INPUT_DIR} nor {FALLBACK_DIR}"
+        )
 
     groups = deserialize_groups(cg_path.read_text(encoding="utf-8"))
-    blocks = _groups_to_blocks(groups, section_name)
+    # trust_kinds: gated/approved content's group kinds are authoritative — the
+    # review gate already decided ambiguous quotes, so skip the render fallback.
+    blocks = _groups_to_blocks(groups, section_name, trust_kinds=True)
     logger.info(f"Built {len(blocks)} blocks for {section_name}")
 
     durations, section_wav = _narrate_blocks(blocks, section_name)
@@ -343,8 +360,46 @@ def build_section_raster(section_id: int) -> Path:
     return output_mp4
 
 
+def _pending_sections() -> list[int]:
+    """Section ids whose render input exists (approved/ preferred, else
+    content_groups/) but whose output mp4 is missing or stale."""
+    seen: set[int] = set()
+    ids: list[int] = []
+    for d in (INPUT_DIR, FALLBACK_DIR):
+        if not d.exists():
+            continue
+        for cg in sorted(d.glob("section_*.txt")):
+            try:
+                sid = int(cg.stem.split("_")[1])
+            except (IndexError, ValueError):
+                continue
+            if sid in seen:
+                continue
+            seen.add(sid)
+            src = _render_input(f"section_{sid}")
+            out = OUTPUT_DIR / f"section_{sid}_raster.mp4"
+            if not out.exists() or out.stat().st_mtime < src.stat().st_mtime:
+                ids.append(sid)
+    return sorted(ids)
+
+
+def _section_id(p: Path) -> int:
+    return int(p.stem.split("_")[1])
+
+
+from src.stage_cli import Stage, run_stage
+
+STAGE = Stage(
+    name="render.build_raster",
+    process_one=build_section_raster,     # int section id -> output/section_N_raster.mp4
+    parse_item=int,
+    pending=_pending_sections,
+    watch_dir=INPUT_DIR,
+    watch_match=lambda p: p.suffix == ".txt" and p.stem.startswith("section_"),
+    item_from_event=_section_id,
+    pool="io",
+)
+
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Render a section via pre-raster + ffmpeg pan")
-    parser.add_argument("section", type=int, help="Section number, e.g. 1")
-    args = parser.parse_args()
-    build_section_raster(args.section)
+    run_stage(STAGE)

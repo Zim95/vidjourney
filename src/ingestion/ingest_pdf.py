@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 # built-ins
-from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 # third party
@@ -12,6 +11,7 @@ from src.ingestion.section_detection import CodeCleanupUtils, CodeMergeUtils, Pa
 from src.config.constants import INGEST_MAX_WORKERS, INGEST_GLOBAL_READING_ORDER_STRIDE
 from src.ingestion.page_elements import PageElement, PageElements
 from src.utils import timer
+from src.scheduler import get_scheduler
 
 
 @timer(label="Ingest PDF")
@@ -105,23 +105,25 @@ def ingest(pdf_path: Path) -> None:
 
     print(f"Total pages: {total_pages}, Pages per chunk: {pages_per_chunk}, Total chunks: {len(page_chunks)}")
 
-    with ProcessPoolExecutor(max_workers=INGEST_MAX_WORKERS) as executor:
-        futures = [
-            executor.submit(read_page_chunk, pdf_path, start_page, end_page)
-            for start_page, end_page in page_chunks
-        ]
+    # Submit page chunks to the shared CPU pool (do not close it — it is the
+    # process-wide scheduler's pool, reused across stages).
+    executor = get_scheduler().cpu
+    futures = [
+        executor.submit(read_page_chunk, pdf_path, start_page, end_page)
+        for start_page, end_page in page_chunks
+    ]
 
-        all_page_elements: list[tuple[int, PageElements]] = []
+    all_page_elements: list[tuple[int, PageElements]] = []
 
-        for future in futures:
-            try:
-                chunk_elements = convert_to_global_reading_order(future.result())
-                all_page_elements.extend(chunk_elements)
-            except Exception as e:
-                print(f"Error processing chunk: {e}")
+    for future in futures:
+        try:
+            chunk_elements = convert_to_global_reading_order(future.result())
+            all_page_elements.extend(chunk_elements)
+        except Exception as e:
+            print(f"Error processing chunk: {e}")
 
-        all_page_elements.sort(key=lambda page_data: page_data[0])
-        total_pages = all_page_elements[-1][0] if all_page_elements else 0 # read the last page number from the sorted list to get the total pages with elements.
+    all_page_elements.sort(key=lambda page_data: page_data[0])
+    total_pages = all_page_elements[-1][0] if all_page_elements else 0 # read the last page number from the sorted list to get the total pages with elements.
 
     sections: list[list[tuple[int, PageElement]]] = Sections(page_elements=all_page_elements).detect_sections()
     filtered_sections: list[list[tuple[int, PageElement]]] = SectionUtils.filter_sections(sections)
@@ -135,12 +137,20 @@ def ingest(pdf_path: Path) -> None:
     print(f"Wrote {len(written_section_files)} section files to pipeline/sections")
 
 
+from src.stage_cli import Stage, run_stage
+
+# Ingest is a single-PDF stage: it fans page-parse chunks across the shared CPU
+# pool internally, so it opts out of the per-item --all/--watch contract.
+STAGE = Stage(
+    name="ingestion.ingest_pdf",
+    process_one=ingest,          # Path(pdf) -> pipeline/sections/section_*.txt
+    parse_item=Path,
+    supports_all=False,
+    supports_watch=False,
+    pool="cpu",
+)
+
+
 if __name__ == "__main__":
     # Usage: python -m src.ingestion.ingest_pdf /path/to/file.pdf
-    import sys
-
-    if len(sys.argv) < 2:
-        print("Usage: python -m src.ingestion.ingest_pdf <pdf_path>")
-        sys.exit(1)
-
-    ingest(Path(sys.argv[1]))
+    run_stage(STAGE)

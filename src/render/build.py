@@ -29,6 +29,7 @@ import subprocess
 from pathlib import Path
 
 from src.utils import logger
+from src.scheduler import subprocess_slot
 from src.ingestion.quote_attribution import (
     has_quote_attribution,
     split_quote_body_and_attribution,
@@ -36,7 +37,7 @@ from src.ingestion.quote_attribution import (
 from src.narration.narrator import narrate_text, get_audio_duration
 from src.assembler.ffmpeg_merge import concat_wavs
 
-from src.scroll.blocks import Block
+from src.render.blocks import Block
 
 
 def _split_sentences(text: str) -> list[str]:
@@ -398,7 +399,7 @@ def _sentence_bullets(text: str, level: int = 0) -> list[Block]:
     return bullets
 
 
-def _groups_to_blocks(groups: list, section_name: str) -> list[Block]:
+def _groups_to_blocks(groups: list, section_name: str, trust_kinds: bool = False) -> list[Block]:
     """Walk content groups in source order and produce blocks.
 
     Display-text policy: **show what's being narrated, verbatim.** We drop
@@ -454,8 +455,10 @@ def _groups_to_blocks(groups: list, section_name: str) -> list[Block]:
         # detector didn't catch — bare-name attributions (e.g. "—Donald Knuth")
         # and non-Gregorian years (BCE, year-ranges like "1265-1274").
         # Year-bearing attributions are already routed via the "quote" group
-        # kind above and don't reach this branch.
-        if not list_items and not resources and has_quote_attribution(intro_text):
+        # kind above and don't reach this branch. Skipped when trust_kinds is
+        # set (gated/approved content): the review gate is authoritative for
+        # ambiguous quotes, so render trusts the explicit group kinds.
+        if not trust_kinds and not list_items and not resources and has_quote_attribution(intro_text):
             body, attribution = split_quote_body_and_attribution(intro_text)
             blocks.append(Block(
                 kind="quote",
@@ -505,12 +508,13 @@ def _make_silence_wav(duration: float, out_path: Path) -> Path:
     track during image blocks that have no narration — the camera scrolls
     across the image; the silence keeps audio cursor in sync with video.
     """
-    subprocess.run([
-        "ffmpeg", "-y",
-        "-f", "lavfi", "-i", f"anullsrc=r=22050:cl=mono",
-        "-t", f"{duration:.3f}",
-        str(out_path),
-    ], check=True, capture_output=True)
+    with subprocess_slot():
+        subprocess.run([
+            "ffmpeg", "-y",
+            "-f", "lavfi", "-i", f"anullsrc=r=22050:cl=mono",
+            "-t", f"{duration:.3f}",
+            str(out_path),
+        ], check=True, capture_output=True)
     return out_path
 
 

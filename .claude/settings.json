@@ -213,7 +213,24 @@
       "Bash(awk '{a+=$1;d+=$2} END{print \"added:\",a,\" removed:\",d,\" net:\",a-d}')",
       "Bash(.venv/bin/python -m py_compile src/ingestion/ml/train.py src/ingestion/section_detection/code_cleanup.py)",
       "Bash(.venv/bin/python -m py_compile src/scroll/build.py src/ingestion/quote_attribution.py)",
-      "Bash(.venv/bin/python -c \"import src.scroll.build, src.scroll.build_raster; print\\('render path imports OK'\\)\")"
+      "Bash(.venv/bin/python -c \"import src.scroll.build, src.scroll.build_raster; print\\('render path imports OK'\\)\")",
+      "Bash(.venv/bin/python -c \"import os; print\\('cpu_count:', os.cpu_count\\(\\)\\)\")",
+      "Bash(.venv/bin/python -m py_compile src/scene_grouping/review_gate.py src/scroll/build_raster.py src/scroll/build.py)",
+      "Bash(.venv/bin/python -c \"import src.scene_grouping.review_gate, src.scroll.build_raster; print\\('imports OK'\\)\")",
+      "Bash(.venv/bin/python -m py_compile src/pipeline.py src/stage_cli.py)",
+      "Bash(.venv/bin/python -c \"import src.pipeline; print\\('pipeline imports OK'\\)\")",
+      "Bash(.venv/bin/python -m src.pipeline --help)",
+      "Bash(xargs sed -i '' 's/scene_grouping/grouping/g')",
+      "Bash(xargs sed -i '' 's/src\\\\.scroll/src.render/g')",
+      "Bash(xargs sed -i '' 's|src/scroll|src/render|g')",
+      "Bash(sed -i '' 's/name=\"scroll.build_raster\"/name=\"render.build_raster\"/' src/render/build_raster.py)",
+      "Bash(sed -i '' 's#scripts/generate_descriptions.py#src/publisher/describe.py#g' scripts/upload_to_youtube.py src/publisher/youtube_uploader.py)",
+      "Bash(sed -i '' -e 's#python scripts/generate_descriptions.py#python -m src.publisher.describe --all#g' -e 's#python -m src.scene_grouping.llm_grouper#python -m src.grouping.llm_grouper#g' -e 's#src.scroll.build_raster#src.render.build_raster#g' -e 's#`scripts/generate_descriptions.py`#`src/publisher/describe.py`#g' README.md)",
+      "Bash(sed -i '' 's/from src.publisher.youtube_uploader import/from src.publisher.push_prepare import/' src/publisher/upload.py)",
+      "Bash(sed -i '' 's/scripts\\\\.upload_to_youtube/src.publisher.upload/g' src/publisher/upload.py src/pipeline.py README.md)",
+      "Bash(sed -i '' -e 's#`src/publisher/` | YouTube upload \\(`youtube_uploader.py`\\)#`src/publisher/` | describe \\(`describe.py`\\), YouTube upload \\(`push_prepare.py` + `upload.py`\\)#' -e 's#| `scripts/` | `generate_descriptions.py`, `upload_to_youtube.py` |##' README.md)",
+      "Bash(.venv/bin/python -c \"import src.publisher.push_prepare, src.publisher.upload, src.pipeline; print\\('publish modules import OK'\\)\")",
+      "Bash(.venv/bin/python -m src.publisher.upload --help)"
     ]
   }
 }

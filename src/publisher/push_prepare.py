@@ -1,7 +1,7 @@
 """Upload the assembled part videos to YouTube, scheduled and paced.
 
 This module reuses the paste-ready ``pipeline/descriptions/part_NN.md`` files
-produced by ``scripts/generate_descriptions.py`` — it does NOT regenerate any
+produced by ``src/publisher/describe.py`` — it does NOT regenerate any
 title/description/tags. It:
 
   * parses each ``part_NN.md`` for its Title / Description / Tags / mp4 path,
