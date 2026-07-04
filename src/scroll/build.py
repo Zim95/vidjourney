@@ -29,8 +29,10 @@ import subprocess
 from pathlib import Path
 
 from src.utils import logger
-from src.scene_grouping.llm_classifier import classify_paragraph
-from src.scene_grouping.llm_quotes import extract_quote
+from src.ingestion.quote_attribution import (
+    has_quote_attribution,
+    split_quote_body_and_attribution,
+)
 from src.narration.narrator import narrate_text, get_audio_duration
 from src.assembler.ffmpeg_merge import concat_wavs
 
@@ -427,14 +429,14 @@ def _groups_to_blocks(groups: list, section_name: str) -> list[Block]:
         if group.kind == "quote":
             # Quote was deterministically detected upstream (ingestion or the
             # grouper's safety-net pass) — anchor.text is the full quote +
-            # attribution string. extract_quote pulls them apart for display.
+            # attribution string. Split it into body + attribution for display.
             quote_text = group.anchor.text.strip()
-            q = extract_quote(quote_text)
+            body, attribution = split_quote_body_and_attribution(quote_text)
             blocks.append(Block(
                 kind="quote",
                 text=quote_text,
-                display=q.text,
-                attribution=q.attribution,
+                display=body,
+                attribution=attribution,
             ))
             continue
 
@@ -448,22 +450,20 @@ def _groups_to_blocks(groups: list, section_name: str) -> list[Block]:
         resources = group.resources
         cap_map = group.caption_for_resource
 
-        # LLM-classifier fallback for quotes the deterministic detector
-        # didn't catch — bare-name attributions (e.g. "—Donald Knuth") and
-        # non-Gregorian years (BCE, year-ranges like "1265-1274"). Year-bearing
-        # attributions are already routed via the "quote" group kind above
-        # and don't reach this branch.
-        if not list_items and not resources:
-            verdict = classify_paragraph(intro_text)
-            if verdict == "quote":
-                q = extract_quote(intro_text)
-                blocks.append(Block(
-                    kind="quote",
-                    text=intro_text,
-                    display=q.text,
-                    attribution=q.attribution,
-                ))
-                continue
+        # Deterministic attribution fallback for quotes the strict ingestion
+        # detector didn't catch — bare-name attributions (e.g. "—Donald Knuth")
+        # and non-Gregorian years (BCE, year-ranges like "1265-1274").
+        # Year-bearing attributions are already routed via the "quote" group
+        # kind above and don't reach this branch.
+        if not list_items and not resources and has_quote_attribution(intro_text):
+            body, attribution = split_quote_body_and_attribution(intro_text)
+            blocks.append(Block(
+                kind="quote",
+                text=intro_text,
+                display=body,
+                attribution=attribution,
+            ))
+            continue
 
         # Everything else: paragraph anchor sentence-splits into level-0
         # bullets (lead-in / context), then any resources show inline, then

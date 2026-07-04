@@ -202,13 +202,17 @@ class CodeCleanupUtils:
 
 
     @staticmethod
-    def _ml_code_proba(text: str) -> float:
-        """Return ML probability that text is code. Returns 1.0 if model unavailable."""
+    def _ml_code_proba_batch(texts: list[str]) -> list[float]:
+        """Batch ML probability that each line is code — one embed+predict
+        pass for every line. Returns 1.0 for all lines if the model is
+        unavailable (conservative: don't demote code we couldn't score)."""
+        if not texts:
+            return []
         try:
-            from src.ingestion.ml.train import predict_is_code_proba
-            return predict_is_code_proba(text)
+            from src.ingestion.ml.train import predict_is_code_proba_batch
+            return predict_is_code_proba_batch(texts)
         except Exception:
-            return 1.0
+            return [1.0] * len(texts)
 
     @staticmethod
     def split_code_blocks_by_ml(
@@ -220,6 +224,11 @@ class CodeCleanupUtils:
         Lines with proba >= threshold stay as code.
         Lines with proba < threshold become paragraphs.
         Consecutive runs of the same type are grouped together.
+
+        Every candidate line across every code block is embedded in a single
+        batched pass (collect -> embed once -> classify) rather than one HTTP
+        request per line. Output is identical to a per-line pass: the same
+        lines are scored by the same model against the same threshold.
         """
         if threshold is None:
             from src.config.constants import ML_CODE_LINE_THRESHOLD
@@ -228,6 +237,25 @@ class CodeCleanupUtils:
         if not sections:
             return []
 
+        # Pass 1 — collect every non-empty code line, in reading order, into
+        # one flat list so they can be embedded together in Pass 2.
+        all_lines: list[str] = []
+        for section in sections:
+            for _page_number, element in section:
+                if isinstance(element, CodeBlockElement):
+                    for line in element.text.splitlines():
+                        stripped = line.strip()
+                        if stripped:
+                            all_lines.append(stripped)
+
+        # Pass 2 — a single batched embed + predict for all lines at once.
+        probas = CodeCleanupUtils._ml_code_proba_batch(all_lines)
+        # Consumed positionally in Pass 3; Pass 1 and Pass 3 iterate identically
+        # (same sections/elements/lines, same non-empty filter) so alignment holds.
+        proba_iter = iter(probas)
+
+        # Pass 3 — replay the per-line classification, reading each line's
+        # precomputed probability in collection order.
         result_sections: list[list[tuple[int, PageElement]]] = []
 
         for section in sections:
@@ -252,7 +280,7 @@ class CodeCleanupUtils:
                         prev_type = classified[-1][0] if classified else "code"
                         classified.append((prev_type, line))
                     else:
-                        proba = CodeCleanupUtils._ml_code_proba(stripped)
+                        proba = next(proba_iter)
                         line_type = "code" if proba >= threshold else "text"
                         classified.append((line_type, line))
 

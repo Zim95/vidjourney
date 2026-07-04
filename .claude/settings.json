@@ -210,7 +210,10 @@
       "Bash(.venv/bin/python -c \"import json; d=json.load\\(open\\('pipeline/descriptions/upload_state.json'\\)\\); print\\('16:', d.get\\('part_16',{}\\).get\\('videoId'\\)\\); print\\('17:', d.get\\('part_17',{}\\).get\\('videoId'\\)\\)\")",
       "Bash(.venv/bin/python -m scripts.upload_to_youtube --part 18,19,20,21,22,23)",
       "Bash(.venv/bin/python -c \"import json; d=json.load\\(open\\('.youtube_token.json'\\)\\); print\\('token present, refresh_token:', bool\\(d.get\\('refresh_token'\\)\\)\\)\")",
-      "Bash(awk '{a+=$1;d+=$2} END{print \"added:\",a,\" removed:\",d,\" net:\",a-d}')"
+      "Bash(awk '{a+=$1;d+=$2} END{print \"added:\",a,\" removed:\",d,\" net:\",a-d}')",
+      "Bash(.venv/bin/python -m py_compile src/ingestion/ml/train.py src/ingestion/section_detection/code_cleanup.py)",
+      "Bash(.venv/bin/python -m py_compile src/scroll/build.py src/ingestion/quote_attribution.py)",
+      "Bash(.venv/bin/python -c \"import src.scroll.build, src.scroll.build_raster; print\\('render path imports OK'\\)\")"
     ]
   }
 }
