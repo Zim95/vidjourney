@@ -34,6 +34,7 @@ from src.publisher.youtube_uploader import (
     channel_info,
     discover_parts,
     publish_at_for,
+    publish_at_on,
     upload_parts,
 )
 
@@ -74,6 +75,14 @@ def main() -> None:
         help="Upload only these part number(s), comma-separated (e.g. 12 or 12,14). "
         "Each part keeps its own scheduled publishAt.",
     )
+    ap.add_argument(
+        "--publish-at",
+        type=str,
+        default=None,
+        metavar="YYYY-MM-DD",
+        help="Override the scheduled publish date for every part in this run "
+        "(at the configured publish_time/timezone). e.g. --publish-at 2026-07-04",
+    )
     args = ap.parse_args()
 
     if args.whoami:
@@ -109,7 +118,14 @@ def main() -> None:
         if not parts:
             return
 
-    upload_parts(parts=parts, dry_run=args.dry_run, limit=args.limit, delay_seconds=args.delay)
+    override = publish_at_on(args.publish_at) if args.publish_at else None
+    upload_parts(
+        parts=parts,
+        dry_run=args.dry_run,
+        limit=args.limit,
+        delay_seconds=args.delay,
+        publish_at_override=override,
+    )
 
 
 if __name__ == "__main__":

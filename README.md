@@ -208,3 +208,17 @@ accurate.
 ## License
 
 See `LICENSE`.
+
+
+## Upload
+
+```bash
+# list all parts + their scheduled dates
+.venv/bin/python -m scripts.upload_to_youtube --list
+
+# override the publish date for this run
+.venv/bin/python -m scripts.upload_to_youtube --limit 6 --publish-at 2026-07-04
+
+# which channel does the token point to
+.venv/bin/python -m scripts.upload_to_youtube --whoami
+```

@@ -1,52 +1,34 @@
 """
-Scroll-renderer prototype entry point.
+Scroll-renderer shared helpers.
 
-End-to-end build for one section in the scroll architecture:
+Layout + narration primitives for one section in the scroll architecture,
+consumed by ``build_raster`` (the live render path):
 
-1. Read ``pipeline/groups/content_groups/section_N.txt`` (same input the
-   existing pipeline consumes — no upstream changes).
-2. Convert ContentGroups into a flat list of ``Block``s. The same long-item
+1. Convert ContentGroups into a flat list of ``Block``s. The same long-item
    expansion (``_expand_list_items``) and concept-card extraction from
    ``llm_timeline`` is reused so summaries / parenthetical bullets / nested
    levels carry over unchanged.
-3. Pre-narrate each block via Piper, measure wav durations, concatenate
+2. Pre-narrate each block via Piper, measure wav durations, concatenate
    into one ``pipeline/scroll/narration/section_N.wav``.
-4. Compute a vertical layout: each block claims a y-range proportional to
+3. Compute a vertical layout: each block claims a y-range proportional to
    its narration duration so a linear camera scroll keeps the
    currently-narrated block centered (modulo block-height vs window-rate
    slack).
-5. Write a JSON instructions file at
+4. Write a JSON instructions file at
    ``pipeline/scroll/instructions/section_N.json`` describing every block's
    final layout position + the camera animation timeline.
-6. Invoke manim with ``ScrollScene`` to render
-   ``pipeline/scroll/output/section_N.mp4`` (silent), then ffmpeg-merge
-   with the narration wav to produce the final mp4.
 
-The old per-scene pipeline is untouched; everything written here is in
-``pipeline/scroll/`` so a fallback is just "use ``pipeline/output/``
-instead." This is intentional — the prototype's value is comparing
-side-by-side, not replacing the working baseline.
-
-Usage:
-    python -m src.scroll.build 1
+The retired manim-animate entry point (``build_section`` / ``_render_manim``)
+has been removed; ``build_raster`` is the single render path.
 """
 from __future__ import annotations
 
-import argparse
 import json
-import os
 import re
 import subprocess
-import sys
 from pathlib import Path
 
 from src.utils import logger
-from src.config.constants import (
-    GROUPING_CONTENT_GROUPS_DIR,
-    MANIM_PYTHON,
-    MANIM_QUALITY,
-)
-from src.scene_grouping.llm_grouper import deserialize_groups
 from src.scene_grouping.llm_classifier import classify_paragraph
 from src.scene_grouping.llm_quotes import extract_quote
 from src.narration.narrator import narrate_text, get_audio_duration
@@ -73,7 +55,6 @@ def _strip_bullet(text: str) -> str:
 SCROLL_DIR = Path("pipeline/scroll")
 INSTRUCTIONS_DIR = SCROLL_DIR / "instructions"
 NARRATION_DIR = SCROLL_DIR / "narration"
-OUTPUT_DIR = SCROLL_DIR / "output"
 
 # --- Tuning parameters (the whole point of the scroll architecture) ---
 #
@@ -720,7 +701,7 @@ def _camera_path(layouts: list[dict], total_audio: float) -> list[dict]:
     return waypoints
 
 
-# --- Write instructions + invoke manim + merge audio ---
+# --- Write instructions ---
 
 
 def _write_instructions(
@@ -741,83 +722,3 @@ def _write_instructions(
     }, indent=2), encoding="utf-8")
     logger.info(f"Wrote scroll instructions: {path}")
     return path
-
-
-def _render_manim(instructions_path: Path, section_name: str) -> Path:
-    """Invoke manim with ScrollScene. Output goes to the manim default
-    location; we move/rename it to ``pipeline/scroll/output/``.
-    """
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    silent_mp4 = OUTPUT_DIR / f"{section_name}_silent.mp4"
-
-    env = os.environ.copy()
-    env["SCROLL_INSTRUCTIONS_FILE"] = str(instructions_path.resolve())
-
-    cmd = [
-        MANIM_PYTHON, "-m", "manim", f"-{MANIM_QUALITY}",
-        "src/scroll/manim_scene.py", "ScrollScene",
-        "-o", silent_mp4.name,
-        "--media_dir", "media/scroll",
-    ]
-    logger.info(f"Running manim: {' '.join(cmd)}")
-    subprocess.run(cmd, env=env, check=True)
-
-    # Manim writes to media/scroll/videos/manim_scene/<quality>/<scene_name>.mp4
-    manim_output_root = Path("media/scroll/videos/manim_scene")
-    if manim_output_root.exists():
-        candidates = list(manim_output_root.rglob(silent_mp4.name))
-        if candidates:
-            candidates[0].rename(silent_mp4)
-    return silent_mp4
-
-
-def build_section(section_id: int) -> Path:
-    section_name = f"section_{section_id}"
-    cg_path = Path(GROUPING_CONTENT_GROUPS_DIR) / f"{section_name}.txt"
-    if not cg_path.exists():
-        logger.error(f"Missing content_groups: {cg_path}")
-        sys.exit(1)
-
-    groups = deserialize_groups(cg_path.read_text(encoding="utf-8"))
-    blocks = _groups_to_blocks(groups, section_name)
-    logger.info(f"Built {len(blocks)} blocks for {section_name}")
-
-    durations, section_wav = _narrate_blocks(blocks, section_name)
-    layouts, total_height, total_audio = _layout(blocks, durations)
-    logger.info(
-        f"Layout: total_height={total_height:.2f} units, "
-        f"total_audio={total_audio:.2f}s"
-    )
-
-    camera_path = _camera_path(layouts, total_audio)
-    instructions_path = _write_instructions(
-        section_name, layouts, total_height, total_audio, camera_path
-    )
-
-    silent_mp4 = _render_manim(instructions_path, section_name)
-    logger.info(f"Silent mp4: {silent_mp4}")
-
-    # Merge silent video + narration directly so the output stays inside
-    # ``pipeline/scroll/output/`` instead of the shared ``pipeline/output/``
-    # the production pipeline uses. Keeps the prototype isolated.
-    final_mp4 = OUTPUT_DIR / f"{section_name}.mp4"
-    if final_mp4.exists():
-        final_mp4.unlink()
-    subprocess.run([
-        "ffmpeg", "-y",
-        "-i", str(silent_mp4),
-        "-i", str(section_wav),
-        "-c:v", "copy",
-        "-c:a", "aac",
-        "-shortest",
-        str(final_mp4),
-    ], check=True, capture_output=True)
-    logger.info(f"Final mp4: {final_mp4}")
-    return final_mp4
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Scroll-render a section (prototype)")
-    parser.add_argument("section", type=int, help="Section number, e.g. 1")
-    args = parser.parse_args()
-    build_section(args.section)

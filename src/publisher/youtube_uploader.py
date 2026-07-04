@@ -215,6 +215,16 @@ def publish_at_for(index: int) -> str:
     return local_dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def publish_at_on(date_str: str) -> str:
+    """RFC3339 UTC publishAt for an explicit ``YYYY-MM-DD`` at the configured
+    publish_time/timezone — used to override the computed per-part schedule."""
+    hh, mm = (int(x) for x in YOUTUBE_PUBLISH_TIME.split(":"))
+    d = datetime.strptime(date_str, "%Y-%m-%d").date()
+    tz = _tzinfo(YOUTUBE_PUBLISH_TIMEZONE)
+    local_dt = datetime(d.year, d.month, d.day, hh, mm, tzinfo=tz)
+    return local_dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
 # --------------------------------------------------------------------------- #
 # Upload ledger
 # --------------------------------------------------------------------------- #
@@ -482,6 +492,7 @@ def upload_parts(
     dry_run: bool = False,
     limit: int | None = None,
     delay_seconds: float | None = None,
+    publish_at_override: str | None = None,
 ) -> list[dict]:
     """Upload parts sequentially with scheduling, pacing, and a ledger.
 
@@ -536,8 +547,9 @@ def upload_parts(
 
     for i, part in enumerate(pending):
         # Schedule index is over ALL parts so the calendar stays stable across
-        # runs — part N always targets start_date + N*interval.
-        publish_at = publish_at_for(part.part_num - 1)
+        # runs — part N always targets start_date + N*interval. An explicit
+        # --publish-at override applies the same date to every part in the run.
+        publish_at = publish_at_override or publish_at_for(part.part_num - 1)
         print(
             f"[{i + 1}/{len(pending)}] {part.key}: {part.title!r}\n"
             f"      file: {part.video_path.name}\n"
