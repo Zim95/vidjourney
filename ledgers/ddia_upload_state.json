@@ -1,0 +1,708 @@
+{
+  "part_01": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 1 - Foundations of data systems.mp4",
+    "manual": true,
+    "note": "uploaded manually in Studio (not via this tool)",
+    "title": "Designing Data-Intensive Applications - Part 1 - Foundations of data systems",
+    "videoId": null
+  },
+  "part_02": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 2 - System reliability and scaling.mp4",
+    "manual": true,
+    "note": "uploaded manually in Studio (not via this tool)",
+    "title": "Designing Data-Intensive Applications - Part 2 - System reliability and scaling",
+    "videoId": null
+  },
+  "part_03": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 3 - Performance coping strategies.mp4",
+    "manual": true,
+    "note": "uploaded manually in Studio (not via this tool)",
+    "title": "Designing Data-Intensive Applications - Part 3 - Performance coping strategies",
+    "videoId": null
+  },
+  "part_04": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 4 - Software system maintainability and evolution.mp4",
+    "manual": true,
+    "note": "uploaded manually in Studio (not via this tool)",
+    "title": "Designing Data-Intensive Applications - Part 4 - Software system maintainability and evolution",
+    "videoId": null
+  },
+  "part_05": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 5 - Data models and NoSQL.mp4",
+    "manual": true,
+    "note": "uploaded manually in Studio (not via this tool)",
+    "title": "Designing Data-Intensive Applications - Part 5 - Data models and NoSQL",
+    "videoId": null
+  },
+  "part_06": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 6 - Data relationships and history.mp4",
+    "manual": true,
+    "note": "uploaded manually in Studio (not via this tool)",
+    "title": "Designing Data-Intensive Applications - Part 6 - Data relationships and history",
+    "videoId": null
+  },
+  "part_07": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 7 - Relational versus document databases.mp4",
+    "manual": true,
+    "note": "uploaded manually in Studio (not via this tool)",
+    "title": "Designing Data-Intensive Applications - Part 7 - Relational versus document databases",
+    "videoId": null
+  },
+  "part_08": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 8 - Web data querying models.mp4",
+    "manual": true,
+    "note": "uploaded manually in Studio (not via this tool)",
+    "title": "Designing Data-Intensive Applications - Part 8 - Web data querying models",
+    "videoId": null
+  },
+  "part_09": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 9 - Graph databases and querying.mp4",
+    "manual": true,
+    "note": "uploaded manually in Studio (not via this tool)",
+    "title": "Designing Data-Intensive Applications - Part 9 - Graph databases and querying",
+    "videoId": null
+  },
+  "part_10": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 10 - SPARQL and graph databases.mp4",
+    "manual": true,
+    "note": "uploaded manually in Studio (not via this tool)",
+    "title": "Designing Data-Intensive Applications - Part 10 - SPARQL and graph databases",
+    "videoId": null
+  },
+  "part_11": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 11 - Storage retrieval and indexing.mp4",
+    "manual": true,
+    "note": "uploaded manually in Studio (not via this tool)",
+    "title": "Designing Data-Intensive Applications - Part 11 - Storage retrieval and indexing",
+    "videoId": null
+  },
+  "part_12": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 12 - Indexing data structures.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "title": "Designing Data-Intensive Applications - Part 12 - Indexing data structures",
+    "url": "https://youtu.be/gAXGmTUoi-g",
+    "videoId": "gAXGmTUoi-g"
+  },
+  "part_13": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 13 - Comparing indexing structures.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-05T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 13 - Comparing indexing structures",
+    "url": "https://youtu.be/X1zOLx9EZYU",
+    "videoId": "X1zOLx9EZYU"
+  },
+  "part_14": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 14 - Data processing and storage.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-06T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 14 - Data processing and storage",
+    "url": "https://youtu.be/T6SFjQeFgX0",
+    "videoId": "T6SFjQeFgX0"
+  },
+  "part_15": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 15 - Column storage and writing.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-07T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 15 - Column storage and writing",
+    "url": "https://youtu.be/pC2W9NuXt3o",
+    "videoId": "pC2W9NuXt3o"
+  },
+  "part_16": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 16 - Data aggregation and encoding.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 16 - Data aggregation and encoding",
+    "url": "https://youtu.be/VoZFs12zPfI",
+    "videoId": "VoZFs12zPfI"
+  },
+  "part_17": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 17 - Data encoding formats and protocols.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 17 - Data encoding formats and protocols",
+    "url": "https://youtu.be/6-oLJu2ueb0",
+    "videoId": "6-oLJu2ueb0"
+  },
+  "part_18": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 18 - Avro data format.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 18 - Avro data format",
+    "url": "https://youtu.be/N7BBJIF0jpM",
+    "videoId": "N7BBJIF0jpM"
+  },
+  "part_19": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 19 - Dataflow through systems.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 19 - Dataflow through systems",
+    "url": "https://youtu.be/x1iL-X1ydK0",
+    "videoId": "x1iL-X1ydK0"
+  },
+  "part_20": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 20 - Message passing dataflow summary.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 20 - Message passing dataflow summary",
+    "url": "https://youtu.be/5LFhY8U7lX8",
+    "videoId": "5LFhY8U7lX8"
+  },
+  "part_21": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 21 - Distributed data scaling and replication.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 21 - Distributed data scaling and replication",
+    "url": "https://youtu.be/Aej6VnKyb_E",
+    "videoId": "Aej6VnKyb_E"
+  },
+  "part_22": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 22 - Replication and fault handling.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 22 - Replication and fault handling",
+    "url": "https://youtu.be/08eAFXpogBk",
+    "videoId": "08eAFXpogBk"
+  },
+  "part_23": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 23 - Replication log and lag.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 23 - Replication log and lag",
+    "url": "https://youtu.be/7O8xr5toGY8",
+    "videoId": "7O8xr5toGY8"
+  },
+  "part_24": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 24 - Replication strategies and solutions.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 24 - Replication strategies and solutions",
+    "url": "https://youtu.be/LueSfNvoGVM",
+    "videoId": "LueSfNvoGVM"
+  },
+  "part_25": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 25 - Conflict resolution and replication.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 25 - Conflict resolution and replication",
+    "url": "https://youtu.be/ROI8yUSe0ZQ",
+    "videoId": "ROI8yUSe0ZQ"
+  },
+  "part_26": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 26 - Replication and consistency challenges.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 26 - Replication and consistency challenges",
+    "url": "https://youtu.be/nexKkpS3tC0",
+    "videoId": "nexKkpS3tC0"
+  },
+  "part_27": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 27 - Concurrency and time relativity.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 27 - Concurrency and time relativity",
+    "url": "https://youtu.be/u4jrcA0CkpI",
+    "videoId": "u4jrcA0CkpI"
+  },
+  "part_28": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 28 - Partitioning and replication strategies.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 28 - Partitioning and replication strategies",
+    "url": "https://youtu.be/YAd9J0b909I",
+    "videoId": "YAd9J0b909I"
+  },
+  "part_29": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 29 - Data partitioning and load balancing.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 29 - Data partitioning and load balancing",
+    "url": "https://youtu.be/6Z8rXLeMvyQ",
+    "videoId": "6Z8rXLeMvyQ"
+  },
+  "part_30": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 30 - Partitioning and rebalancing indexes.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 30 - Partitioning and rebalancing indexes",
+    "url": "https://youtu.be/p63rcId-Zh8",
+    "videoId": "p63rcId-Zh8"
+  },
+  "part_31": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 31 - Data operations and execution.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 31 - Data operations and execution",
+    "url": "https://youtu.be/tAzv1E1qhyo",
+    "videoId": "tAzv1E1qhyo"
+  },
+  "part_32": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 32 - Transaction concepts and ACID.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 32 - Transaction concepts and ACID",
+    "url": "https://youtu.be/Du0Dbb8kaSc",
+    "videoId": "Du0Dbb8kaSc"
+  },
+  "part_33": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 33 - Object operations and durability.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 33 - Object operations and durability",
+    "url": "https://youtu.be/qkOGp8fOIAk",
+    "videoId": "qkOGp8fOIAk"
+  },
+  "part_34": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 34 - Isolation levels in transactions.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 34 - Isolation levels in transactions",
+    "url": "https://youtu.be/dUMDxK-z2Qc",
+    "videoId": "dUMDxK-z2Qc"
+  },
+  "part_35": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 35 - Concurrency control and locking.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 35 - Concurrency control and locking",
+    "url": "https://youtu.be/3nMH3dqplGU",
+    "videoId": "3nMH3dqplGU"
+  },
+  "part_36": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 36 - Write skew serializability execution.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 36 - Write skew serializability execution",
+    "url": "https://youtu.be/jBj2r5fcosM",
+    "videoId": "jBj2r5fcosM"
+  },
+  "part_37": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 37 - Concurrency control mechanisms.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 37 - Concurrency control mechanisms",
+    "url": "https://youtu.be/M3n2yzb5U-w",
+    "videoId": "M3n2yzb5U-w"
+  },
+  "part_38": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 38 - Distributed systems faults and failures.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 38 - Distributed systems faults and failures",
+    "url": "https://youtu.be/cUSObl6KIJw",
+    "videoId": "cUSObl6KIJw"
+  },
+  "part_39": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 39 - Cloud computing system reliability.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 39 - Cloud computing system reliability",
+    "url": "https://youtu.be/H7BTRDySo6U",
+    "videoId": "H7BTRDySo6U"
+  },
+  "part_40": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 40 - Network fault detection and communication.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 40 - Network fault detection and communication",
+    "url": "https://youtu.be/SGJi9WLETw8",
+    "videoId": "SGJi9WLETw8"
+  },
+  "part_41": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 41 - Clock synchronization and accuracy.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 41 - Clock synchronization and accuracy",
+    "url": "https://youtu.be/ndloCeeObmg",
+    "videoId": "ndloCeeObmg"
+  },
+  "part_42": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 42 - Synchronized clocks and timing.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 42 - Synchronized clocks and timing",
+    "url": "https://youtu.be/C5QNuIJJnTQ",
+    "videoId": "C5QNuIJJnTQ"
+  },
+  "part_43": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 43 - Pausing the process.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 43 - Pausing the process",
+    "url": "https://youtu.be/wAnpbx26ib8",
+    "videoId": "wAnpbx26ib8"
+  },
+  "part_44": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 44 - Knowledge truth and lies.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 44 - Knowledge truth and lies",
+    "url": "https://youtu.be/X60Li53MoqY",
+    "videoId": "X60Li53MoqY"
+  },
+  "part_45": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 45 - Byzantine problem system model.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 45 - Byzantine problem system model",
+    "url": "https://youtu.be/kDJ17AdDdWw",
+    "videoId": "kDJ17AdDdWw"
+  },
+  "part_46": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 46 - Consistency and consensus.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 46 - Consistency and consensus",
+    "url": "https://youtu.be/KZh5swCDCaM",
+    "videoId": "KZh5swCDCaM"
+  },
+  "part_47": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 47 - Consistency and linearizability guarantees.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 47 - Consistency and linearizability guarantees",
+    "url": "https://youtu.be/Gtez-Og4MMA",
+    "videoId": "Gtez-Og4MMA"
+  },
+  "part_48": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 48 - Linearizability implementation details.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 48 - Linearizability implementation details",
+    "url": "https://youtu.be/h2Qb-fwdQ-g",
+    "videoId": "h2Qb-fwdQ-g"
+  },
+  "part_49": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 49 - Ordering guarantees and cost.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 49 - Ordering guarantees and cost",
+    "url": "https://youtu.be/4ZfFPx62ThA",
+    "videoId": "4ZfFPx62ThA"
+  },
+  "part_50": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 50 - Ordering and causality.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 50 - Ordering and causality",
+    "url": "https://youtu.be/jtBA2QUYPPE",
+    "videoId": "jtBA2QUYPPE"
+  },
+  "part_51": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 51 - Ordering sequences.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 51 - Ordering sequences",
+    "url": "https://youtu.be/-LxZVSMfev4",
+    "videoId": "-LxZVSMfev4"
+  },
+  "part_52": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 52 - Order broadcast systems.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 52 - Order broadcast systems",
+    "url": "https://youtu.be/osKawLPEhgY",
+    "videoId": "osKawLPEhgY"
+  },
+  "part_53": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 53 - Distributed transactions and consensus.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 53 - Distributed transactions and consensus",
+    "url": "https://youtu.be/SDFJfPM_ejo",
+    "videoId": "SDFJfPM_ejo"
+  },
+  "part_54": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 54 - Distributed transactions in practice.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 54 - Distributed transactions in practice",
+    "url": "https://youtu.be/v-hFGlOSE68",
+    "videoId": "v-hFGlOSE68"
+  },
+  "part_55": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 55 - Fault-tolerant consensus mechanisms.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 55 - Fault-tolerant consensus mechanisms",
+    "url": "https://youtu.be/NOuQeviEUeY",
+    "videoId": "NOuQeviEUeY"
+  },
+  "part_56": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 56 - Membership and coordination services.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 56 - Membership and coordination services",
+    "url": "https://youtu.be/eKiViXrolYU",
+    "videoId": "eKiViXrolYU"
+  },
+  "part_57": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 57 - Derived data and batch processing.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 57 - Derived data and batch processing",
+    "url": "https://youtu.be/KjSzZm9cjEQ",
+    "videoId": "KjSzZm9cjEQ"
+  },
+  "part_58": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 58 - Log analysis and aggregation.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 58 - Log analysis and aggregation",
+    "url": "https://youtu.be/AsuqR4b6WA0",
+    "videoId": "AsuqR4b6WA0"
+  },
+  "part_59": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 59 - MapReduce job execution.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 59 - MapReduce job execution",
+    "url": "https://youtu.be/3cs_1W6Yv2M",
+    "videoId": "3cs_1W6Yv2M"
+  },
+  "part_60": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 60 - Reducing side joins and grouping.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 60 - Reducing side joins and grouping",
+    "url": "https://youtu.be/DHvaH52WF6U",
+    "videoId": "DHvaH52WF6U"
+  },
+  "part_61": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 61 - Data joins and workflows.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 61 - Data joins and workflows",
+    "url": "https://youtu.be/jDVti5ksOQI",
+    "videoId": "jDVti5ksOQI"
+  },
+  "part_62": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 62 - Hadoop distributed databases comparison.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 62 - Hadoop distributed databases comparison",
+    "url": "https://youtu.be/h7ExwhEv9es",
+    "videoId": "h7ExwhEv9es"
+  },
+  "part_63": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 63 - Beyond MapReduce state materialization.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 63 - Beyond MapReduce state materialization",
+    "url": "https://youtu.be/3hlHyxQNbs8",
+    "videoId": "3hlHyxQNbs8"
+  },
+  "part_64": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 64 - Processing and APIs.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 64 - Processing and APIs",
+    "url": "https://youtu.be/vluKhDZRjB4",
+    "videoId": "vluKhDZRjB4"
+  },
+  "part_65": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 65 - Stream processing overview.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 65 - Stream processing overview",
+    "url": "https://youtu.be/Qi80zAtGbBA",
+    "videoId": "Qi80zAtGbBA"
+  },
+  "part_66": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 66 - Event streams and messaging systems.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 66 - Event streams and messaging systems",
+    "url": "https://youtu.be/mfP3D7j4SNE",
+    "videoId": "mfP3D7j4SNE"
+  },
+  "part_67": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 67 - Analyzing partitioned logs.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 67 - Analyzing partitioned logs",
+    "url": "https://youtu.be/hHin8_v4qPI",
+    "videoId": "hHin8_v4qPI"
+  },
+  "part_68": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 68 - Data systems and synchronization.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 68 - Data systems and synchronization",
+    "url": "https://youtu.be/DfspcmDPmqA",
+    "videoId": "DfspcmDPmqA"
+  },
+  "part_69": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 69 - Event sourcing and state management.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 69 - Event sourcing and state management",
+    "url": "https://youtu.be/FChf4OLCp8Y",
+    "videoId": "FChf4OLCp8Y"
+  },
+  "part_70": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 70 - Stream processing concepts and uses.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 70 - Stream processing concepts and uses",
+    "url": "https://youtu.be/jciBxWv7-f0",
+    "videoId": "jciBxWv7-f0"
+  },
+  "part_71": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 71 - Time and stream joins.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 71 - Time and stream joins",
+    "url": "https://youtu.be/bb3CugSKXNM",
+    "videoId": "bb3CugSKXNM"
+  },
+  "part_72": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 72 - Joins fault tolerance summary.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 72 - Joins fault tolerance summary",
+    "url": "https://youtu.be/BDLCIBNU2ZA",
+    "videoId": "BDLCIBNU2ZA"
+  },
+  "part_73": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 73 - Future of data systems.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 73 - Future of data systems",
+    "url": "https://youtu.be/XEHVFOxeFv8",
+    "videoId": "XEHVFOxeFv8"
+  },
+  "part_74": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 74 - Data processing and schema management.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 74 - Data processing and schema management",
+    "url": "https://youtu.be/ejLfKWDnabo",
+    "videoId": "ejLfKWDnabo"
+  },
+  "part_75": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 75 - Data storage technologies.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 75 - Data storage technologies",
+    "url": "https://youtu.be/sKLLvjJY2js",
+    "videoId": "sKLLvjJY2js"
+  },
+  "part_76": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 76 - Dataflow application design.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 76 - Dataflow application design",
+    "url": "https://youtu.be/3HV90WASSeQ",
+    "videoId": "3HV90WASSeQ"
+  },
+  "part_77": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 77 - Observing derived state.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 77 - Observing derived state",
+    "url": "https://youtu.be/t5uc1S66gSo",
+    "videoId": "t5uc1S66gSo"
+  },
+  "part_78": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 78 - Database correctness and identification.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 78 - Database correctness and identification",
+    "url": "https://youtu.be/J74IwQSFV0k",
+    "videoId": "J74IwQSFV0k"
+  },
+  "part_79": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 79 - Enforcing timeliness and integrity.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 79 - Enforcing timeliness and integrity",
+    "url": "https://youtu.be/XkBpVNkzrbc",
+    "videoId": "XkBpVNkzrbc"
+  },
+  "part_80": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 80 - Verifying trust in systems.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 80 - Verifying trust in systems",
+    "url": "https://youtu.be/suU9SCNb_Jg",
+    "videoId": "suU9SCNb_Jg"
+  },
+  "part_81": {
+    "file": "pipeline/scroll/parts/Designing Data-Intensive Applications - Part 81 - Ethics analytics privacy summary.mp4",
+    "playlistId": "PL3yTDI3ftw29fEc6BnZsZKJqxjUcgFjWO",
+    "publishAt": "2026-07-04T10:00:00Z",
+    "thumbnail": true,
+    "title": "Designing Data-Intensive Applications - Part 81 - Ethics analytics privacy summary",
+    "url": "https://youtu.be/-xHxvrMlYBc",
+    "videoId": "-xHxvrMlYBc"
+  }
+}

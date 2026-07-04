@@ -3,35 +3,17 @@
 Turn a PDF into a folder of narrated explainer videos, bundled into ~10-minute
 "Part" videos and optionally published to YouTube on a schedule.
 
-VidJourney ingests a PDF, extracts text + figures + code blocks + tables,
-groups them per section, narrates everything with Piper TTS, renders each
-section as a vertically-scrolling canvas with Manim + ffmpeg (camera panning in
-sync with the narration), packs consecutive sections into ≥10-minute Parts, and
-can upload those Parts to YouTube — scheduled, paced, and added to a playlist.
+VidJourney ingests a PDF, extracts text + figures + code blocks + tables, groups
+them per section, narrates everything with Piper TTS, renders each section as a
+vertically-scrolling canvas with Manim + ffmpeg (camera panning in sync with the
+narration), packs consecutive sections into ≥10-minute Parts, and can upload
+those Parts to YouTube — scheduled, paced, and added to a playlist.
 
-> **Architecture note:** the current pipeline is a set of standalone stages run
-> in sequence (there is no single orchestrator yet — the old `main.py` watchdog
-> cascade was retired). The planned re-architecture — a unified orchestrator
-> with per-stage `--all`/`--watch`/`--workers` and a watchdog cascade — is
-> documented in **[FINAL_ARCH.md](FINAL_ARCH.md)**.
-
----
-
-## Prerequisites
-
-- Python 3.11+ with [uv](https://docs.astral.sh/uv/)
-- [ffmpeg](https://ffmpeg.org/) (with **libass** if you want burned-in subtitles)
-- [Ollama](https://ollama.com) with `gemma4:e2b` pulled (chat) and
-  `nomic-embed-text` (embeddings, for code detection)
-- [Piper TTS](https://github.com/rhasspy/piper) voice at
-  `~/.local/share/piper-voices/en_US-lessac-medium.onnx`
-- `models/code_rf.joblib` — Random Forest for code-vs-text classification
-  (see *ML model training* below if missing; falls back to heuristics)
-- For YouTube upload only: `uv add google-api-python-client google-auth-oauthlib
-  google-auth-httplib2` and an OAuth client (see *Publishing to YouTube*)
-
-`./install.sh` handles the core dependencies (except the ML model and the
-Google libraries).
+It's a **terminal-only** application. Every stage runs standalone *or* as part of
+a watchdog cascade driven by a single orchestrator, and one optional human
+**review gate** lets you correct detector mistakes before anything renders. The
+design is documented in **[FINAL_ARCH.md](FINAL_ARCH.md)**; the refactor that got
+here is in **[REFACTOR_PLAN.md](REFACTOR_PLAN.md)**.
 
 ---
 
@@ -41,78 +23,122 @@ Google libraries).
 PDF
  │
  ▼
-[1] INGEST     PDF → pipeline/sections/section_*.txt  (text, figures, code, tables)
-[2] GROUP      sections → pipeline/groups/content_groups/  (deterministic grouping + listify)
-[3] RENDER     per section → narrate (Piper) → scroll canvas (Manim) → ffmpeg pan
- │             → pipeline/scroll/output/section_N_raster.mp4
-[4] PARTS      pack consecutive sections into ≥10-min Parts → pipeline/scroll/parts/
- │             named "<Book> - Part <n> - <Summary>.mp4"
-[5] DESCRIBE   Parts → pipeline/descriptions/part_NN.md  (paste-ready YouTube metadata)
-[6] PUBLISH    (optional) upload Parts to YouTube — scheduled, paced, into a playlist
+[1] INGEST    PDF → pipeline/sections/section_*.txt         (text, figures, code, tables)
+[2] GROUP     sections → pipeline/groups/content_groups/    (deterministic grouping + listify)
+[3] GATE      content_groups → pipeline/groups/approved/    (auto-pass; human reviews the flagged few)
+[4] RENDER    per section → narrate (Piper) → scroll canvas (Manim) → ffmpeg pan
+ │            approved → pipeline/scroll/output/section_N_raster.mp4
+[5] ASSEMBLE  pack consecutive sections into ≥10-min Parts → pipeline/scroll/parts/
+ │            named "<Book> - Part <n> - <Summary>.mp4"
+[6] DESCRIBE  Parts → pipeline/descriptions/part_NN.md      (paste-ready YouTube metadata)
+[7] PUBLISH   (optional, manual) upload Parts to YouTube — scheduled, paced, into a playlist
 ```
+
+Everything is **idempotent**: each stage skips work whose output is newer than
+its input, so reruns and crashes resume cleanly.
 
 ---
 
-## Running the pipeline
+## Prerequisites
 
-Every stage is a standalone command. You can run them **one at a time** (good
-for partial reprocessing — e.g. re-render a single section after a change) or
-chain them to run **all at once**.
+- Python 3.11+ with [uv](https://docs.astral.sh/uv/)
+- [ffmpeg](https://ffmpeg.org/) (+ `ffprobe`)
+- [Ollama](https://ollama.com) with **`nomic-embed-text`** pulled (embeddings — required
+  for code detection and the review gate). A chat model (`[ollama] chat_model`) is
+  **optional**: it's used only by the Part-title generator, which has a deterministic
+  fallback, so the whole pipeline runs with zero chat-LLM dependency.
+- [Piper TTS](https://github.com/rhasspy/piper) voice at
+  `~/.local/share/piper-voices/en_US-lessac-medium.onnx`
+- `models/code_rf.joblib` — Random Forest for code-vs-prose classification
+  (see *ML model training* below; falls back to heuristics if missing)
+- For YouTube upload only: `uv add google-api-python-client google-auth-oauthlib
+  google-auth-httplib2` and an OAuth client (see *Publishing to YouTube*)
 
-### Individually
+`./install.sh` handles the core dependencies (except the ML model and the Google
+libraries).
+
+---
+
+## Quick start — the orchestrator
+
+Run the whole cascade from one command. It ingests the PDF, then each stage fires
+as its input files land, all sharing one bounded scheduler:
 
 ```bash
-# [1] Ingest one PDF → section files
+python -m src.pipeline /path/to/book.pdf              # full cascade (ingest → … → describe)
+python -m src.pipeline /path/to/book.pdf --no-gate    # skip the review-gate hop
+python -m src.pipeline /path/to/book.pdf --workers 6  # cap the pool size for this run
+```
+
+The cascade runs `ingest → group → gate (auto-pass) → render → assemble → describe`.
+Publishing stays manual (see below). Interactive review is an out-of-band step you
+run on whichever sections you want to inspect — the cascade's gate hop only
+auto-passes, so it never blocks.
+
+---
+
+## Running stages individually
+
+Every stage is also a standalone command with the **same contract** — handy for
+partial reprocessing (e.g. re-render one section after a change):
+
+```
+python -m src.<stage> <item>       # process one item (debug)
+python -m src.<stage> --all        # process all pending items, fanned across the pool
+python -m src.<stage> --watch       # watchdog: process inputs as they land (cascade)
+python -m src.<stage> --workers N   # pool size for this run
+```
+
+| Stage | Module | Notes |
+|---|---|---|
+| Ingest | `src.ingestion.ingest_pdf <book.pdf>` | single PDF in (no `--all/--watch`) |
+| Group | `src.grouping.llm_grouper` | `<section.txt>` / `--all` / `--watch` |
+| Gate | `src.grouping.review_gate` | see *Review gate* below |
+| Render | `src.render.build_raster` | `<N>` (section number) / `--all` / `--watch` |
+| Assemble | `src.assembler.build_video` | `--all` (build Parts); `--all --dry-run` to preview |
+| Describe | `src.publisher.describe` | `--all` (write all `part_NN.md`) |
+| Publish | `src.publisher.upload` | intentionally sequential + manual (see below) |
+
+```bash
+# examples
 python -m src.ingestion.ingest_pdf /path/to/book.pdf
-
-# [2] Group sections → content groups
-python -m src.grouping.llm_grouper --all                       # all pending
-python -m src.grouping.llm_grouper --watch                     # cascade: group as ingest writes files
-python -m src.grouping.llm_grouper pipeline/sections/section_3.txt   # one section
-
-# [3] Render a section → narrated scroll mp4 (the slow stage)
-python -m src.render.build_raster 3                                  # one section, by number
-
-# [4] Pack rendered sections into ≥10-min Part videos
-python -m src.assembler.build_video --dry-run                        # preview the packing
-python -m src.assembler.build_video                                  # write the Parts
-
-# [5] Generate paste-ready YouTube metadata per Part
+python -m src.grouping.llm_grouper --all
+python -m src.grouping.review_gate --approve-clean      # auto-pass everything, no review
+python -m src.render.build_raster --all                 # render all pending sections
+python -m src.assembler.build_video --all
 python -m src.publisher.describe --all
-
-# [6] Upload to YouTube (optional — see Publishing to YouTube)
-python -m src.publisher.upload --dry-run
-python -m src.publisher.upload --limit 6
 ```
 
-Note: ingest, build_video, and generate_descriptions process **everything** in
-one run; group supports `--all`/`--watch`; **render is per-section** (one number
-per call) — loop it to render the whole book (below).
+Render reads the gate's `approved/` output, falling back to `content_groups/` for
+any section that hasn't been through the gate — so an ungated run still renders.
 
-### All at once
+---
 
-There is no single orchestrator yet, so a full run chains the stages (the render
-step loops over every section):
+## Review gate
+
+The gate sits between grouping and render. It **auto-passes clean sections** and
+only asks you about the handful with borderline detections, so a 200-section book
+needs a few prompts, not hundreds.
 
 ```bash
-PDF=/path/to/book.pdf
-
-python -m src.ingestion.ingest_pdf "$PDF"            # 1. PDF → sections
-python -m src.grouping.llm_grouper --all       # 2. sections → groups
-
-for f in pipeline/sections/section_*.txt; do         # 3. render every section
-  n=$(echo "$f" | sed -E 's/.*section_([0-9]+)\.txt/\1/')
-  python -m src.render.build_raster "$n"
-done
-
-python -m src.assembler.build_video                  # 4. pack into Parts
-python -m src.publisher.describe --all              # 5. YouTube metadata
-# python -m src.publisher.upload --limit 6      # 6. (optional) publish
+python -m src.grouping.review_gate --approve-clean   # batch: auto-pass all pending (no questions)
+python -m src.grouping.review_gate --watch           # cascade: auto-pass sections as they land
+python -m src.grouping.review_gate <section.txt>     # interactively review ONE section
+python -m src.grouping.review_gate --review          # interactively review all pending sections
 ```
 
-Tip: run the grouper in `--watch` mode in a second terminal **before** ingest,
-and stages 1→2 cascade automatically as section files land. Render onward is
-still manual today (the full watchdog cascade is the FINAL_ARCH.md target).
+Interactive review covers:
+
+- **Ambiguous quotes** — a paragraph ending in a bare-name / non-year em-dash
+  attribution. Confirming shows it as a quote; declining keeps it prose. Render
+  trusts these decisions.
+- **Borderline code lines** — code whose classifier probability sits near the
+  threshold. Your correction is appended to
+  `src/ingestion/ml/training_code_snippets/` (the **training-data flywheel**), so
+  the next `train.py` + re-ingest improves the detector. (The current section's
+  rendered code image updates on the next ingest, not live.)
+
+Batch modes never prompt and never block, so the automated cascade always drains.
 
 ---
 
@@ -133,11 +159,11 @@ One-time setup:
 3. Set `[youtube]` `playlist_id`, `publish_start_date`, and the thumbnail.
 
 ```bash
-python -m src.publisher.upload --whoami      # confirm which channel
-python -m src.publisher.upload --list        # list discovered Parts + schedule
-python -m src.publisher.upload --dry-run     # full plan, no upload
-python -m src.publisher.upload --limit 6     # upload N pending (≈6/day on free quota)
-python -m src.publisher.upload --part 14,15  # upload specific Parts
+python -m src.publisher.upload --whoami       # confirm which channel
+python -m src.publisher.upload --list         # list discovered Parts + schedule
+python -m src.publisher.upload --dry-run      # full plan, no upload
+python -m src.publisher.upload --limit 6      # upload N pending (≈6/day on free quota)
+python -m src.publisher.upload --part 14,15   # upload specific Parts
 ```
 
 Notes:
@@ -155,23 +181,23 @@ Notes:
 
 Everything tuneable lives in **`configuration.cfg`** (INI). Key knobs:
 
-- `[pipeline]` `thread_workers` / `process_workers` — concurrency pools
-- `[manim]` `quality` — `qh` (1080p60), `qm` (720p30), `ql` (480p15, fastest)
-- `[ingestion]` table + code detection thresholds; code-block rendering
+- `[pipeline]` `thread_workers` / `process_workers` — the shared IO / CPU pool sizes
+  (also the default subprocess-concurrency cap). Override per run with `--workers`.
+- `[manim]` `python` — the interpreter the raster renderer shells out to.
+- `[ingestion]` table + code detection thresholds; code-block rendering.
 - `[grouping]` `book_title` (used in Part filenames), `part_min_duration_minutes`
-  (default 10), `piper_model`, narration/output dirs
-- `[ollama]` `chat_model` (default `gemma4:e2b`) — only used for the optional
-  Part-title generator
-- `[ml]` embeddings endpoint/model + Random-Forest training params
-- `[subtitles]` libass style (used only if subtitles are burned in)
-- `[youtube]` OAuth, playlist, scheduling, pacing, thumbnail (see above)
+  (default 10), `piper_*` (narration voice), `content_groups_dir`, `approved_dir`.
+- `[ollama]` `chat_model` — only the optional Part-title generator (has a fallback).
+- `[ml]` embeddings endpoint/model, Random-Forest params, `code_line_threshold`,
+  and `code_line_confidence_margin` (the review gate's "borderline" band).
+- `[youtube]` OAuth, playlist, scheduling, pacing, thumbnail (see above).
 
 ---
 
 ## ML model training (one-time, for code detection)
 
-Ingestion uses a Random Forest to distinguish code lines from prose. Trained
-once from labeled samples:
+Ingestion uses a Random Forest (hand-crafted features + `nomic-embed-text`
+embeddings, batched) to distinguish code lines from prose:
 
 ```bash
 python -m src.ingestion.ingest_pdf /path/to/book.pdf   # writes code-block candidates
@@ -180,8 +206,19 @@ python -m src.ingestion.ml.train                       # → models/code_rf.jobl
 python -m src.ingestion.ml.line_proba                  # (optional) inspect predictions
 ```
 
-Without the model, code detection falls back to heuristics — usually fine, less
-accurate.
+The review gate feeds this loop: code corrections you make there land in
+`src/ingestion/ml/training_code_snippets/` and are picked up by the next `train.py`.
+Without the model, code detection falls back to heuristics — usually fine, less accurate.
+
+---
+
+## Concurrency
+
+One shared [`Scheduler`](src/scheduler.py) owns a **CPU pool** (PDF parsing), an
+**IO pool** (grouping / manim / ffmpeg / Piper / embeddings / YouTube), and a
+**global subprocess semaphore** so that, however many stages run at once
+(standalone or under the orchestrator), the machine never oversubscribes. Pool
+sizes come from `[pipeline]` and can be overridden per run with `--workers`.
 
 ---
 
@@ -189,35 +226,23 @@ accurate.
 
 | Path | What it is |
 |---|---|
-| `configuration.cfg` | All tuneable settings (paths, models, YouTube, style) |
+| `configuration.cfg` | All tuneable settings (paths, models, YouTube) |
+| `src/pipeline.py` | Orchestrator — the watchdog cascade |
+| `src/scheduler.py` | Shared CPU/IO pools + subprocess semaphore |
+| `src/stage_cli.py` | The `<item>` / `--all` / `--watch` / `--workers` contract |
 | `src/ingestion/` | PDF → section files + extracted media; `ml/` = code classifier |
-| `src/grouping/` | Deterministic grouping + listify + quote handling |
-| `src/render/` | Scroll-canvas renderer (`build_raster.py` live path) + Piper narration (`narrator.py`) |
+| `src/grouping/` | Grouping + listify + quote handling (`llm_grouper.py`) + review gate (`review_gate.py`) |
+| `src/render/` | Scroll-canvas renderer (`build_raster.py` live path) + layout helpers (`build.py`) + Piper narration (`narrator.py`) |
 | `src/assembler/` | ffmpeg merge/concat + Part packaging (`build_video.py`) |
-| `src/publisher/` | describe (`describe.py`), YouTube upload (`push_prepare.py` + `upload.py`) |
-
+| `src/publisher/` | describe (`describe.py`) + YouTube upload (`push_prepare.py` lib + `upload.py` CLI) |
 | `pipeline/` | All generated artifacts (regenerable) |
 | `media/` | Manim's raw render output (regenerable) |
 | `models/` | Trained ML models (`code_rf.joblib`) |
-| `FINAL_ARCH.md` | Planned re-architecture: parallel, orchestrated, dual-trigger |
-| `ARCHITECTURE.md` | Stage-by-stage detail (note: predates the scroll rewrite) |
+| `FINAL_ARCH.md` | Target architecture | 
+| `REFACTOR_PLAN.md` | The phased refactor that implemented it |
 
 ---
 
 ## License
 
 See `LICENSE`.
-
-
-## Upload
-
-```bash
-# list all parts + their scheduled dates
-.venv/bin/python -m src.publisher.upload --list
-
-# override the publish date for this run
-.venv/bin/python -m src.publisher.upload --limit 6 --publish-at 2026-07-04
-
-# which channel does the token point to
-.venv/bin/python -m src.publisher.upload --whoami
-```
