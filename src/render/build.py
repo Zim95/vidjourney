@@ -34,7 +34,7 @@ from src.ingestion.quote_attribution import (
     has_quote_attribution,
     split_quote_body_and_attribution,
 )
-from src.narration.narrator import narrate_text, get_audio_duration
+from src.render.narrator import narrate_text, get_audio_duration
 from src.assembler.ffmpeg_merge import concat_wavs
 
 from src.render.blocks import Block

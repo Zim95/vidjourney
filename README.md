@@ -192,8 +192,7 @@ accurate.
 | `configuration.cfg` | All tuneable settings (paths, models, YouTube, style) |
 | `src/ingestion/` | PDF → section files + extracted media; `ml/` = code classifier |
 | `src/grouping/` | Deterministic grouping + listify + quote handling |
-| `src/narration/` | Piper TTS |
-| `src/render/` | Scroll-canvas renderer (`build_raster.py` is the live path) |
+| `src/render/` | Scroll-canvas renderer (`build_raster.py` live path) + Piper narration (`narrator.py`) |
 | `src/assembler/` | ffmpeg merge/concat + Part packaging (`build_video.py`) |
 | `src/publisher/` | describe (`describe.py`), YouTube upload (`push_prepare.py` + `upload.py`) |
 

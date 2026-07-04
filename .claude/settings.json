@@ -230,7 +230,10 @@
       "Bash(sed -i '' 's/scripts\\\\.upload_to_youtube/src.publisher.upload/g' src/publisher/upload.py src/pipeline.py README.md)",
       "Bash(sed -i '' -e 's#`src/publisher/` | YouTube upload \\(`youtube_uploader.py`\\)#`src/publisher/` | describe \\(`describe.py`\\), YouTube upload \\(`push_prepare.py` + `upload.py`\\)#' -e 's#| `scripts/` | `generate_descriptions.py`, `upload_to_youtube.py` |##' README.md)",
       "Bash(.venv/bin/python -c \"import src.publisher.push_prepare, src.publisher.upload, src.pipeline; print\\('publish modules import OK'\\)\")",
-      "Bash(.venv/bin/python -m src.publisher.upload --help)"
+      "Bash(.venv/bin/python -m src.publisher.upload --help)",
+      "Bash(sed -i '' 's/from src.narration.narrator import/from src.render.narrator import/' src/render/build.py)",
+      "Bash(sed -i '' -e 's#| `src/render/` | Scroll-canvas renderer \\(`build_raster.py` is the live path\\) |#| `src/render/` | Scroll-canvas renderer \\(`build_raster.py` live path\\) + Piper narration \\(`narrator.py`\\) |#' -e '/| `src\\\\/narration\\\\/` | Piper TTS |/d' README.md)",
+      "Bash(.venv/bin/python -c \"import src.render.narrator, src.render.build, src.render.build_raster; print\\('render+narrator import OK'\\)\")"
     ]
   }
 }
