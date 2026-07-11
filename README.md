@@ -156,7 +156,22 @@ One-time setup:
    API runs on a free daily quota.)
 2. Point `[youtube] client_secrets_file` at that JSON. The token is written to
    `token_file` after the first browser sign-in and reused after.
-3. Set `[youtube]` `playlist_id`, `publish_start_date`, and the thumbnail.
+3. Set the rest of `[youtube]` — `publish_start_date`, the playlist, and the
+   thumbnail (both covered just below).
+
+**Playlist — you don't create it by hand.** Leave `playlist_id` blank and set
+`playlist_title`; on the first upload the tool creates a playlist with that title
+(privacy from `playlist_privacy`), adds every Part to it, and caches its id in the
+ledger so all later `--limit` batches land in the *same* playlist. To use an
+existing playlist instead, paste its id or full URL into `playlist_id`.
+
+**Thumbnail — generate a 1280×720 (16:9) PNG from your cover art**, then point
+`thumbnail_file` at the output:
+
+```bash
+python -m src.publisher.make_thumbnail cover.png -o images/book_16x9.png   # cover = crop-to-fill
+python -m src.publisher.make_thumbnail cover.png --fit contain             # letterbox instead
+```
 
 ```bash
 python -m src.publisher.upload --whoami       # confirm which channel
@@ -234,7 +249,7 @@ sizes come from `[pipeline]` and can be overridden per run with `--workers`.
 | `src/grouping/` | Grouping + listify + quote handling (`llm_grouper.py`) + review gate (`review_gate.py`) |
 | `src/render/` | Scroll-canvas renderer (`build_raster.py` live path) + layout helpers (`build.py`) + Piper narration (`narrator.py`) |
 | `src/assembler/` | ffmpeg merge/concat + Part packaging (`build_video.py`) |
-| `src/publisher/` | describe (`describe.py`) + YouTube upload (`push_prepare.py` lib + `upload.py` CLI) |
+| `src/publisher/` | describe (`describe.py`) + YouTube upload (`push_prepare.py` lib + `upload.py` CLI) + thumbnail prep (`make_thumbnail.py`) |
 | `pipeline/` | All generated artifacts (regenerable) |
 | `media/` | Manim's raw render output (regenerable) |
 | `models/` | Trained ML models (`code_rf.joblib`) |

@@ -233,7 +233,21 @@
       "Bash(.venv/bin/python -m src.publisher.upload --help)",
       "Bash(sed -i '' 's/from src.narration.narrator import/from src.render.narrator import/' src/render/build.py)",
       "Bash(sed -i '' -e 's#| `src/render/` | Scroll-canvas renderer \\(`build_raster.py` is the live path\\) |#| `src/render/` | Scroll-canvas renderer \\(`build_raster.py` live path\\) + Piper narration \\(`narrator.py`\\) |#' -e '/| `src\\\\/narration\\\\/` | Piper TTS |/d' README.md)",
-      "Bash(.venv/bin/python -c \"import src.render.narrator, src.render.build, src.render.build_raster; print\\('render+narrator import OK'\\)\")"
+      "Bash(.venv/bin/python -c \"import src.render.narrator, src.render.build, src.render.build_raster; print\\('render+narrator import OK'\\)\")",
+      "Bash(.venv/bin/python -m src.publisher.make_thumbnail --help)",
+      "Bash(.venv/bin/python -V)",
+      "Bash(.venv/bin/python -m pip install --quiet docling)",
+      "Bash(echo \"=== install exit: $? ===\")",
+      "Bash(.venv/bin/python -c \"import docling; print\\('docling', docling.__version__ if hasattr\\(docling,'__version__'\\) else 'installed'\\)\")",
+      "Bash(.venv/bin/python -c \"import docling; from docling.document_converter import DocumentConverter; print\\('docling OK', getattr\\(docling,'__version__','?'\\)\\)\")",
+      "Bash(.venv/bin/python -c \"from docling.document_converter import DocumentConverter; import docling; print\\('docling OK', getattr\\(docling,'__version__','?'\\)\\)\")",
+      "Bash(.venv/bin/python \"/private/tmp/claude-501/-Users-namahshrestha-test-vidjourney/c1c891ca-4cef-47b8-b660-b45b749108b4/scratchpad/docling_spike.py\")",
+      "Bash(grep -v \"^\\\\s*$\")",
+      "Bash(.venv/bin/python \"/private/tmp/claude-501/-Users-namahshrestha-test-vidjourney/c1c891ca-4cef-47b8-b660-b45b749108b4/scratchpad/docling_probe.py\")",
+      "Bash(.venv/bin/python \"/private/tmp/claude-501/-Users-namahshrestha-test-vidjourney/c1c891ca-4cef-47b8-b660-b45b749108b4/scratchpad/test_ingestion_new.py\")",
+      "Bash(PYTHONPATH=/Users/namahshrestha/test/vidjourney .venv/bin/python \"/private/tmp/claude-501/-Users-namahshrestha-test-vidjourney/c1c891ca-4cef-47b8-b660-b45b749108b4/scratchpad/test_ingestion_new.py\")",
+      "Bash(.venv/bin/python -m py_compile src/ingestion_new/*.py src/pipeline.py src/stage_cli.py src/scheduler.py src/publisher/*.py)",
+      "Bash(git commit *)"
     ]
   }
 }

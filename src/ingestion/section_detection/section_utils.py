@@ -1,4 +1,6 @@
 import re
+import sys
+from ast import literal_eval
 from collections import defaultdict
 from dataclasses import replace
 
@@ -192,48 +194,81 @@ class SectionUtils:
             print(f"{section_number}, {page_number}, {heading_text}")
 
     @staticmethod
+    def _parse_ranges(text: str) -> list[tuple[int, int]] | None:
+        """Parse section-range input into a list of ``(start, end)`` tuples.
+
+        Accepts a Python literal (``[(15, 238)]``) or the friendly forms
+        ``15-238`` / ``15-238, 250-260`` / ``15`` (single section). Returns
+        None if the input is empty or unparseable (caller then keeps all).
+        """
+        text = text.strip()
+        if not text:
+            return None
+
+        if text.startswith("[") or text.startswith("("):
+            try:
+                val = literal_eval(text)
+            except (ValueError, SyntaxError):
+                return None
+            items = val if isinstance(val, (list, tuple)) else []
+            if items and all(isinstance(x, int) for x in items) and len(items) == 2:
+                items = [tuple(items)]  # a bare "(15, 238)"
+            out: list[tuple[int, int]] = []
+            for item in items:
+                if isinstance(item, (tuple, list)) and len(item) == 2 and all(isinstance(x, int) for x in item):
+                    out.append((int(item[0]), int(item[1])))
+                elif isinstance(item, int):
+                    out.append((item, item))
+            return out or None
+
+        out = []
+        for part in text.split(","):
+            part = part.strip()
+            if not part:
+                continue
+            try:
+                if "-" in part:
+                    a, _, b = part.partition("-")
+                    out.append((int(a), int(b)))
+                else:
+                    out.append((int(part), int(part)))
+            except ValueError:
+                return None
+        return out or None
+
+    @staticmethod
     def filter_sections(sections: list[list[tuple[int, PageElement]]]) -> list[list[tuple[int, PageElement]]]:
         '''
-        Display sections and interactively select ranges of section numbers to keep.
-        Input format:
-            [(start_number, end_number), (start_number, end_number), ...]
+        Display the detected sections and interactively pick which to keep —
+        used to drop front-matter / index / back-matter per book.
+
+        Section numbers are 1-based and inclusive. Enter keeps everything.
+        Accepted input: ``15-238`` · ``15-238, 250-260`` · ``[(15, 238)]``.
+        Non-interactive runs (no TTY — e.g. the watchdog cascade) keep all so
+        they never block on input.
         '''
         if not sections:
             print("No sections found.")
             return []
 
         SectionUtils.display_sections(sections)
-        # Temporary hardcoded section selection for development.
-        parsed_ranges = [(15, 238)]
-
-        # user_input = input(
-        #     "Enter section ranges to keep as [(start, end), ...] (press Enter to keep all): "
-        # ).strip()
-        #
-        # if not user_input:
-        #     return sections
-        #
-        # try:
-        #     parsed_ranges = literal_eval(user_input)
-        # except (ValueError, SyntaxError):
-        #     print("Invalid range format. Keeping all sections.")
-        #     return sections
-        #
-        # if not isinstance(parsed_ranges, list):
-        #     print("Input must be a list of tuples. Keeping all sections.")
-        #     return sections
-
-        selected_indices: set[int] = set()
         total_sections = len(sections)
 
-        for item in parsed_ranges:
-            if not isinstance(item, tuple) or len(item) != 2:
-                continue
+        if not sys.stdin.isatty():
+            print(f"[filter] non-interactive — keeping all {total_sections} sections.")
+            return sections
 
-            start_number, end_number = item
-            if not isinstance(start_number, int) or not isinstance(end_number, int):
-                continue
+        raw = input(
+            "Sections to keep — e.g. 15-238  or  15-238, 250-260  "
+            "(Enter = keep all): "
+        )
+        parsed_ranges = SectionUtils._parse_ranges(raw)
+        if parsed_ranges is None:
+            print(f"Keeping all {total_sections} sections.")
+            return sections
 
+        selected_indices: set[int] = set()
+        for start_number, end_number in parsed_ranges:
             start = max(1, min(start_number, end_number))
             end = min(total_sections, max(start_number, end_number))
             for section_number in range(start, end + 1):
